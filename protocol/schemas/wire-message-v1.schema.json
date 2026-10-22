@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://peri6.local/schemas/wire-message-v1.schema.json",
+  "title": "Peri6 wire message v1",
+  "oneOf": [
+    {"$ref": "#/$defs/hello"},
+    {"$ref": "#/$defs/challenge"},
+    {"$ref": "#/$defs/auth"},
+    {"$ref": "#/$defs/authenticated"},
+    {"$ref": "#/$defs/signedEnvelope"}
+  ],
+  "$defs": {
+    "id128": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "nonce128": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{21}[AQgw]$"
+    },
+    "mac256": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+    },
+    "hello": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type", "request_id", "client_name", "client_version", "client_nonce"],
+      "properties": {
+        "v": {"const": 1},
+        "type": {"const": "HELLO"},
+        "request_id": {"$ref": "#/$defs/id128"},
+        "client_name": {"type": "string", "minLength": 1, "maxLength": 64},
+        "client_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+        "client_nonce": {"$ref": "#/$defs/nonce128"}
+      }
+    },
+    "challenge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type", "request_id", "sid", "device_id", "device_nonce", "auth", "device_proof"],
+      "properties": {
+        "v": {"const": 1},
+        "type": {"const": "CHALLENGE"},
+        "request_id": {"$ref": "#/$defs/id128"},
+        "sid": {"$ref": "#/$defs/id128"},
+        "device_id": {"type": "string", "pattern": "^p6-[a-z0-9-]{3,32}$"},
+        "device_nonce": {"$ref": "#/$defs/nonce128"},
+        "auth": {"const": "hmac-sha256-v1"},
+        "device_proof": {"$ref": "#/$defs/mac256"}
+      }
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type", "request_id", "sid", "client_proof"],
+      "properties": {
+        "v": {"const": 1},
+        "type": {"const": "AUTH"},
+        "request_id": {"$ref": "#/$defs/id128"},
+        "sid": {"$ref": "#/$defs/id128"},
+        "client_proof": {"$ref": "#/$defs/mac256"}
+      }
+    },
+    "authenticated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type", "request_id", "sid", "server_proof"],
+      "properties": {
+        "v": {"const": 1},
+        "type": {"const": "AUTHENTICATED"},
+        "request_id": {"$ref": "#/$defs/id128"},
+        "sid": {"$ref": "#/$defs/id128"},
+        "server_proof": {"$ref": "#/$defs/mac256"}
+      }
+    },
+    "signedEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type", "sid", "seq", "body", "mac"],
+      "properties": {
+        "v": {"const": 1},
+        "type": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,31}$"},
+        "sid": {"$ref": "#/$defs/id128"},
+        "seq": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+        "body": {"type": "string", "minLength": 3, "pattern": "^[A-Za-z0-9_-]+$"},
+        "mac": {"$ref": "#/$defs/mac256"}
+      }
+    }
+  }
+}

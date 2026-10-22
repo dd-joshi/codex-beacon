@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://peri6.local/schemas/status-request-body-v1.schema.json",
+  "title": "Peri6 STATUS request body v1",
+  "type": "object",
+  "additionalProperties": false,
+  "maxProperties": 0
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://peri6.local/schemas/scene-id-body-v1.schema.json",
+  "title": "Peri6 KEEPALIVE or CLEAR body v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["scene_id"],
+  "properties": {
+    "scene_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{21}[AQgw]$"}
+  }
+}

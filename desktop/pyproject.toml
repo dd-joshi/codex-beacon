@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "peri6-desktop"
+version = "0.1.0"
+description = "Peri6 first-party Windows companion and local device host"
+requires-python = ">=3.10"
+dependencies = [
+  "jsonschema>=4.23,<5",
+  "PySide6>=6.10,<7",
+  "websocket-client>=1.8,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+]
+
+[project.gui-scripts]
+peri6 = "peri6.companion.app:main"
+peri6-test = "peri6.tester.app:main"
+
+[project.scripts]
+peri6-setup-agent = "peri6.agent_setup:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"peri6.packs.focus" = ["manifest.json"]
+"peri6.packs.agent" = ["manifest.json"]
+"peri6.companion" = [
+  "web/*.html",
+  "web/*.css",
+  "web/*.js",
+  "web/*.webmanifest",
+  "web/*.svg",
+]

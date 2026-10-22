@@ -1,0 +1,10 @@
+{
+  "name": "sequence gap closes session without refreshing scene",
+  "given": "an authenticated session at monotonic time 0",
+  "steps": [
+    {"send_seq": 1, "type": "LOAD_SCENE", "body_file": "valid-load-scene.json", "expect": "ACK"},
+    {"advance_ms": 1000},
+    {"send_seq": 3, "type": "KEEPALIVE", "body": {"scene_id": "ABEiM0RVZneImaq7zN3u_w"}, "expect": "ERROR_WITH_SEQUENCE_ERROR_AND_CLOSE"},
+    {"advance_ms": 2000, "expect_scene": null}
+  ]
+}

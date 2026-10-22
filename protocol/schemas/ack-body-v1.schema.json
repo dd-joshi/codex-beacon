@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://peri6.local/schemas/ack-body-v1.schema.json",
+  "title": "Peri6 ACK body v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reply_to", "scene_id", "result"],
+  "properties": {
+    "reply_to": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+    "scene_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{21}[AQgw]$"},
+    "result": {"const": "accepted"}
+  }
+}

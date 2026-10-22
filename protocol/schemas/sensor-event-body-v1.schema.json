@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://peri6.local/schemas/sensor-event-body-v1.schema.json",
+  "title": "Peri6 SENSOR_EVENT body v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "sensor", "level_u16"],
+  "properties": {
+    "event_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+    "sensor": {"const": "ambient"},
+    "level_u16": {"type": "integer", "minimum": 0, "maximum": 65535}
+  }
+}

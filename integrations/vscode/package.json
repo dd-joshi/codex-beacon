@@ -1,0 +1,44 @@
+{
+  "name": "peri6-agent",
+  "displayName": "Peri6 Agent Bridge",
+  "description": "Content-free focus/pin signals for the local Peri6 desktop companion.",
+  "publisher": "peri6",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "peri6.pinWorkspace", "title": "Peri6: Pin this workspace" },
+      { "command": "peri6.unpinWorkspace", "title": "Peri6: Unpin workspace" }
+    ],
+    "configuration": {
+      "title": "Peri6",
+      "properties": {
+        "peri6.bridgeEndpoint": {
+          "type": "string",
+          "default": "http://127.0.0.1:8765",
+          "description": "Loopback endpoint of the Peri6 Agent bridge."
+        },
+        "peri6.bridgeToken": {
+          "type": "string",
+          "default": "",
+          "description": "Peri6 loopback bearer token (machine-local; never synced)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --platform=node --format=cjs",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "esbuild": "^0.21.0",
+    "@vscode/vsce": "^2.26.0",
+    "typescript": "^5.4.0"
+  }
+}

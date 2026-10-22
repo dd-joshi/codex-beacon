@@ -1,0 +1,13 @@
+{
+  "warning": "Public deterministic test fixture; never use this secret on a device.",
+  "secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "request_id": "00112233445566778899aabbccddeeff",
+  "sid": "102132435465768798a9babbdcddedef",
+  "client_nonce": "AAECAwQFBgcICQoLDA0ODw",
+  "device_nonce": "EBESExQVFhcYGRobHB0eHw",
+  "device_proof": "OcBPDfl-OenbQZ90VjdvBGEc3FGKG1Z2DBYgQ3V1lX4",
+  "client_proof": "Z2WmJyNaexAQXlbaKOcLF1dF1t_bjBsW5zR2awh6sz8",
+  "server_proof": "UEmJVr6jTK7aQSszKJn48YJ9M65zuSmSH81zP2PxV1w",
+  "client_to_device_key": "x7PQqCZ5mCRUd2qbgxVrwpMSlg4UVwStqW52Zn4Kgb0",
+  "device_to_client_key": "LgAnPwm5GppOT4Wu-R-SsgNgUj3z3T6fvveDayW9LkU"
+}

@@ -1,0 +1,19 @@
+{
+  "scene_id": "ABEiM0RVZneImaq7zN3u_w",
+  "lease_ms": 3000,
+  "brightness": 72,
+  "playback": {"mode": "once", "on_complete": "hold"},
+  "keyframes": [
+    {
+      "transition": {"kind": "step", "duration_ms": 0},
+      "hold_ms": 1000,
+      "cells": [
+        [96, 16, 180],
+        [48, 8, 90],
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0]
+      ]
+    }
+  ]
+}

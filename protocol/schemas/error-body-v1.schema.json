@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://peri6.local/schemas/error-body-v1.schema.json",
+  "title": "Peri6 ERROR body v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reply_to", "code", "detail"],
+  "properties": {
+    "reply_to": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+    "code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$"},
+    "detail": {"type": "string", "maxLength": 160}
+  }
+}

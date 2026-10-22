@@ -1,0 +1,9 @@
+{
+  "name": "scene expires without keepalive",
+  "given": "an authenticated session at monotonic time 0",
+  "steps": [
+    {"send_seq": 1, "type": "LOAD_SCENE", "body_file": "valid-load-scene.json", "expect": "ACK"},
+    {"advance_ms": 2999, "expect_scene": "ABEiM0RVZneImaq7zN3u_w"},
+    {"advance_ms": 1, "expect_scene": null, "expect_cells": [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]}
+  ]
+}

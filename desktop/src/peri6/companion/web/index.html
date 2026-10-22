@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#12141b">
+  <meta name="color-scheme" content="dark">
+  <title>Peri6 status</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main id="app" class="app" data-phase="offline" data-attention="normal">
+    <header class="topbar">
+      <div class="brand">Peri6</div>
+      <div id="phase" class="phase" role="status" aria-live="polite">Connecting</div>
+    </header>
+
+    <section class="status-card">
+      <div id="pack" class="pack">Companion</div>
+      <h1 id="headline" class="headline" aria-live="polite" aria-atomic="true">Waiting for status</h1>
+      <p id="detail" class="detail" aria-live="polite"></p>
+      <p id="action" class="action" aria-live="polite" hidden></p>
+
+      <div id="cells" class="cells" aria-hidden="true"></div>
+
+      <div class="meta">
+        <span id="age" class="age">No update yet</span>
+        <span id="updated" class="updated"></span>
+      </div>
+    </section>
+
+    <footer class="controls">
+      <button id="alerts" class="button primary" type="button">Enable alerts</button>
+      <button id="mute" class="button" type="button" hidden>Mute</button>
+    </footer>
+
+    <div id="offline" class="offline-banner" hidden>
+      Companion offline — showing last known status
+    </div>
+  </main>
+  <script src="app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://peri6.local/schemas/status-body-v1.schema.json",
+  "title": "Peri6 STATUS response body v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reply_to", "boot_id", "uptime_ms", "scene_state", "active_scene_id", "frame_index", "lease_remaining_ms"],
+  "properties": {
+    "reply_to": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+    "boot_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+    "uptime_ms": {"type": "integer", "minimum": 0},
+    "scene_state": {"enum": ["active", "off"]},
+    "active_scene_id": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^[A-Za-z0-9_-]{21}[AQgw]$"}
+      ]
+    },
+    "frame_index": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "integer", "minimum": 0, "maximum": 15}
+      ]
+    },
+    "lease_remaining_ms": {"type": "integer", "minimum": 0}
+  }
+}

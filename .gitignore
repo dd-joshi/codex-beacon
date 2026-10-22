@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+desktop/.venv/
+*.egg-info/
+dist/
+
+# PlatformIO / firmware build output
+.pio/
+firmware/.pio/
+firmware/.backups/
+
+# Local credentials and device-specific configuration
+.env
+.env.*
+!.env.example
+firmware/include/peri6_secrets.h
+firmware/include/peri6_local_config.h
+desktop/local-config.json
+desktop/secrets.json
+desktop/agent-hook.json
+desktop/agent-hook.log
+desktop/phone-status.json
+desktop/phone-status.log
+
+# Editor / OS noise
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,16 @@
+{
+  "manifest_version": 1,
+  "id": "dev.peri6.dummy",
+  "display_name": "Dummy Pattern",
+  "version": "0.1.0",
+  "host_api": {"major": 1, "min_minor": 0},
+  "entry_point": "peri6.packs.dummy:create_pack",
+  "maturity": "Prototype",
+  "permissions": [],
+  "supported_applications": [],
+  "settings_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false
+  }
+}
