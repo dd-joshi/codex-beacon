@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://peri6.local/schemas/error-body-v1.schema.json",
-  "title": "Peri6 ERROR body v1",
+  "$id": "https://codexbeacon.local/schemas/error-body-v1.schema.json",
+  "title": "Codex Beacon ERROR body v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["reply_to", "code", "detail"],

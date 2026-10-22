@@ -8,7 +8,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from peri6.packs.focus.store import (
+from codex_beacon.packs.focus.store import (
     clear_timer_state,
     load_timer_state,
     save_timer_state,

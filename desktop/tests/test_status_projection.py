@@ -7,8 +7,8 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from peri6.companion.presentation import FocusPhase, OutputPhase, PresentationState
-from peri6.companion.status import (
+from codex_beacon.companion.presentation import FocusPhase, OutputPhase, PresentationState
+from codex_beacon.companion.status import (
     NotificationIntent,
     StatusPhase,
     StatusProjector,
@@ -17,8 +17,8 @@ from peri6.companion.status import (
     rotate_phone_status_token,
     save_phone_status_config,
 )
-from peri6.contracts import AttentionClass, RGB
-from peri6.packs.registry import AGENT_PACK_ID, FOCUS_PACK_ID
+from codex_beacon.contracts import AttentionClass, RGB
+from codex_beacon.packs.registry import AGENT_PACK_ID, FOCUS_PACK_ID
 
 
 BLUE = RGB(0, 90, 210)
@@ -243,7 +243,7 @@ class StatusProjectionTests(unittest.TestCase):
         self.assertEqual(snapshot.phase, StatusPhase.ERROR)
         self.assertEqual(snapshot.notify, NotificationIntent.NONE)
         self.assertEqual(snapshot.headline, "Companion error")
-        self.assertEqual(snapshot.suggested_action, "Check Peri6 on the PC.")
+        self.assertEqual(snapshot.suggested_action, "Check Codex Beacon on the PC.")
 
     def test_no_output_is_offline(self) -> None:
         projector = StatusProjector()

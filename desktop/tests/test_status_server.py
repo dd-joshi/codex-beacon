@@ -10,15 +10,15 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from peri6.companion.presentation import OutputPhase, PresentationState
-from peri6.companion.status import (
+from codex_beacon.companion.presentation import OutputPhase, PresentationState
+from codex_beacon.companion.status import (
     NotificationIntent,
     StatusPhase,
     StatusProjector,
 )
-from peri6.companion.status_server import StatusServer
-from peri6.contracts import AttentionClass, RGB
-from peri6.packs.registry import AGENT_PACK_ID
+from codex_beacon.companion.status_server import StatusServer
+from codex_beacon.contracts import AttentionClass, RGB
+from codex_beacon.packs.registry import AGENT_PACK_ID
 
 
 TOKEN = "a" * 43
@@ -158,7 +158,7 @@ class StatusServerTests(unittest.TestCase):
             self.assertEqual(response.status, 200)
             self.assertIn("text/html", response.headers["Content-Type"])
             html = response.read().decode("utf-8")
-        self.assertIn("Peri6", html)
+        self.assertIn("Codex Beacon", html)
 
         with urlopen(f"{self.base}/s/{TOKEN}/app.css", timeout=5) as response:
             self.assertEqual(response.status, 200)
@@ -227,7 +227,13 @@ class StatusServerTests(unittest.TestCase):
             blocker.close()
 
     def test_web_assets_are_present(self) -> None:
-        web = Path(__file__).resolve().parents[1] / "src" / "peri6" / "companion" / "web"
+        web = (
+            Path(__file__).resolve().parents[1]
+            / "src"
+            / "codex_beacon"
+            / "companion"
+            / "web"
+        )
         for name in (
             "index.html",
             "app.css",

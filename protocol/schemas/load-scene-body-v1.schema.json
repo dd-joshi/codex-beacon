@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://peri6.local/schemas/load-scene-body-v1.schema.json",
-  "title": "Peri6 LOAD_SCENE body v1 — ESP32-C3 P0 profile",
+  "$id": "https://codexbeacon.local/schemas/load-scene-body-v1.schema.json",
+  "title": "Codex Beacon LOAD_SCENE body v1 - legacy device profile",
   "type": "object",
   "additionalProperties": false,
   "required": ["scene_id", "lease_ms", "brightness", "playback", "keyframes"],

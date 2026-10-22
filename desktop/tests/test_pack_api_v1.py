@@ -12,7 +12,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "desktop" / "src"))
 
-from peri6.contracts import (  # noqa: E402
+from codex_beacon.contracts import (  # noqa: E402
     AttentionClass,
     Explanation,
     PackProposal,
@@ -25,7 +25,7 @@ from peri6.contracts import (  # noqa: E402
     validate_manifest,
     validate_proposal,
 )
-from peri6.protocol import compile_proposal  # noqa: E402
+from codex_beacon.protocol import compile_proposal  # noqa: E402
 
 
 EXAMPLES = REPO / "protocol" / "examples"

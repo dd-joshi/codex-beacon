@@ -7,11 +7,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from peri6.agent_setup import (
+from codex_beacon.agent_setup import (
     HOOK_EVENTS,
-    VSCODE_CLI_SETTING,
     install_global_hooks,
-    install_vscode_cli_override,
+    uninstall_codex_beacon_hooks,
 )
 
 
@@ -27,16 +26,10 @@ class AgentSetupTests(unittest.TestCase):
                 "command": "python peer_hook.py",
                 "async": True,
             }
-            old_peri6 = {
-                "type": "command",
-                "command": (
-                    "PERI6_AGENT_CONFIG=old python old/peri6_agent_hook.py"
-                ),
-            }
             original = {
                 "description": "Keep this description",
                 "hooks": {
-                    "PreToolUse": [{"matcher": "Bash", "hooks": [peer, old_peri6]}],
+                    "PreToolUse": [{"matcher": "Bash", "hooks": [peer]}],
                     "SessionStart": [{"hooks": [peer]}],
                 },
                 "custom": {"preserved": True},
@@ -70,23 +63,23 @@ class AgentSetupTests(unittest.TestCase):
                     for group in configured["hooks"][event]
                     for handler in group["hooks"]
                 ]
-                peri6 = [
+                ours = [
                     handler
                     for handler in handlers
-                    if "PERI6_AGENT_CONFIG" in handler.get("command", "")
+                    if "CODEX_BEACON_CONFIG" in handler.get("command", "")
                 ]
-                self.assertEqual(len(peri6), 1, event)
-                self.assertIs(peri6[0]["async"], False)
-                self.assertEqual(peri6[0]["timeout"], 3)
+                self.assertEqual(len(ours), 1, event)
+                self.assertIs(ours[0]["async"], False)
+                self.assertEqual(ours[0]["timeout"], 3)
                 escaped_repository = str(repository.resolve()).replace("'", "''")
-                self.assertIn(escaped_repository, peri6[0]["commandWindows"])
+                self.assertIn(escaped_repository, ours[0]["commandWindows"])
             pre_tool_handlers = [
                 handler
                 for group in configured["hooks"]["PreToolUse"]
                 for handler in group["hooks"]
             ]
             self.assertIn(peer, pre_tool_handlers)
-            backup = codex_home / "hooks.json.peri6.bak"
+            backup = codex_home / "hooks.json.codex-beacon.bak"
             self.assertEqual(backup.read_text(encoding="utf-8"), original_text)
 
     def test_global_install_honors_codex_home_environment_variable(self) -> None:
@@ -127,70 +120,48 @@ class AgentSetupTests(unittest.TestCase):
 
             self.assertTrue(path.read_text(encoding="utf-8").startswith("\ufeff{"))
 
-    def test_vscode_override_preserves_existing_settings(self) -> None:
+    def test_uninstall_removes_only_codex_beacon_handlers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            settings = root / "Code" / "User" / "settings.json"
-            settings.parent.mkdir(parents=True)
-            original = json.dumps({"editor.formatOnSave": True})
-            settings.write_text(original, encoding="utf-8")
-            executable = root / "bin" / "codex.exe"
-            executable.parent.mkdir()
-            executable.write_bytes(b"test")
-
-            path, changed = install_vscode_cli_override(
-                executable,
-                settings_path=settings,
-            )
-            _, changed_again = install_vscode_cli_override(
-                executable,
-                settings_path=settings,
-            )
-            configured = json.loads(path.read_text(encoding="utf-8"))
-
-            self.assertTrue(changed)
-            self.assertFalse(changed_again)
-            self.assertIs(configured["editor.formatOnSave"], True)
-            self.assertEqual(configured[VSCODE_CLI_SETTING], str(executable.resolve()))
-            self.assertEqual(
-                settings.with_name("settings.json.peri6.bak").read_text(encoding="utf-8"),
-                original,
-            )
-
-    def test_vscode_override_preserves_jsonc_comments_and_trailing_comma(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            settings = root / "settings.json"
-            settings.write_text(
-                '{\n  // Keep this explanation.\n  "editor.fontSize": 15,\n}\n',
+            repository = self._repository(root)
+            codex_home = root / ".codex"
+            codex_home.mkdir()
+            peer = {"type": "command", "command": "python peer_hook.py"}
+            path = codex_home / "hooks.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "hooks": {
+                            "PreToolUse": [{"hooks": [peer]}],
+                            "Stop": [{"hooks": [peer]}],
+                        }
+                    }
+                ),
                 encoding="utf-8",
             )
-            executable = root / "Codex path" / "codex.exe"
-            executable.parent.mkdir()
-            executable.write_bytes(b"test")
 
-            path, changed = install_vscode_cli_override(
-                executable,
-                settings_path=settings,
-            )
-            first = path.read_text(encoding="utf-8")
-            _, changed_again = install_vscode_cli_override(
-                executable,
-                settings_path=settings,
-            )
+            install_global_hooks(repository, codex_home=codex_home)
+            removed = uninstall_codex_beacon_hooks(codex_home=codex_home)
 
-            self.assertTrue(changed)
-            self.assertFalse(changed_again)
-            self.assertIn("// Keep this explanation.", first)
-            self.assertIn('"editor.fontSize": 15,', first)
-            self.assertIn('"chatgpt.cliExecutable"', first)
-            self.assertIn(str(executable.resolve()).replace("\\", "\\\\"), first)
+            self.assertEqual(removed, [path.resolve()])
+            document = json.loads(path.read_text(encoding="utf-8"))
+            for event in HOOK_EVENTS:
+                handlers = [
+                    handler
+                    for group in document["hooks"].get(event, [])
+                    for handler in group["hooks"]
+                ]
+                self.assertFalse(
+                    any("CODEX_BEACON_CONFIG" in handler.get("command", "") for handler in handlers)
+                )
+            self.assertEqual(document["hooks"]["PreToolUse"], [{"hooks": [peer]}])
+            self.assertEqual(document["hooks"]["Stop"], [{"hooks": [peer]}])
 
     @staticmethod
     def _repository(root: Path) -> Path:
-        repository = root / "Peri6 friend's copy"
+        repository = root / "Codex Beacon friend's copy"
         python = repository / ".venv" / "Scripts" / "python.exe"
-        sender = repository / ".codex" / "hooks" / "peri6_agent_hook.py"
+        sender = repository / ".codex" / "hooks" / "codex_beacon_hook.py"
         python.parent.mkdir(parents=True)
         sender.parent.mkdir(parents=True)
         python.write_bytes(b"python")

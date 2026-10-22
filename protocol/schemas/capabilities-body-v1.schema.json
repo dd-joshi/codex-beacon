@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://peri6.local/schemas/capabilities-body-v1.schema.json",
-  "title": "Peri6 CAPABILITIES body v1",
+  "$id": "https://codexbeacon.local/schemas/capabilities-body-v1.schema.json",
+  "title": "Codex Beacon CAPABILITIES body v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

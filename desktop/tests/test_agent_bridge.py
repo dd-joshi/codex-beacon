@@ -5,8 +5,8 @@ import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from peri6.packs.agent import AgentObservation, AgentOutcome, AgentTask
-from peri6.packs.agent.bridge import AgentEventServer
+from codex_beacon.packs.agent import AgentObservation, AgentOutcome, AgentTask
+from codex_beacon.packs.agent.bridge import AgentEventServer
 
 
 TOKEN = "a" * 43

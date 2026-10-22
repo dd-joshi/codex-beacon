@@ -1,34 +1,40 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyo
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
 .venv/
 desktop/.venv/
-*.egg-info/
+build/
 dist/
+*.egg-info/
+*.spec
 
-# PlatformIO / firmware build output
-.pio/
-firmware/.pio/
-firmware/.backups/
-
-# Local credentials and device-specific configuration
+# Local runtime configuration and logs (never commit these)
 .env
 .env.*
 !.env.example
-firmware/include/peri6_secrets.h
-firmware/include/peri6_local_config.h
 desktop/local-config.json
 desktop/secrets.json
 desktop/agent-hook.json
 desktop/agent-hook.log
 desktop/phone-status.json
 desktop/phone-status.log
+desktop/*.bak
+
+# Removed copied material; keep accidental re-adds out of the public repo
+/firmware/
+/hardware/
+/integrations/
 
 # Editor / OS noise
 .idea/
 .vscode/
+.claude/
 .DS_Store
 Thumbs.db

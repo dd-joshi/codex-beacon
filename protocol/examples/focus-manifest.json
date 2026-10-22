@@ -1,10 +1,10 @@
 {
   "manifest_version": 1,
-  "id": "com.peri6.focus",
+  "id": "com.codexbeacon.focus",
   "display_name": "Focus",
   "version": "0.1.0",
   "host_api": {"major": 1, "min_minor": 0},
-  "entry_point": "peri6.packs.focus:create_pack",
+  "entry_point": "codex_beacon.packs.focus:create_pack",
   "maturity": "Prototype",
   "permissions": [],
   "supported_applications": [],

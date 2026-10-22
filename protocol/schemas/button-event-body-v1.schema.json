@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://peri6.local/schemas/button-event-body-v1.schema.json",
-  "title": "Peri6 BUTTON_EVENT body v1",
+  "$id": "https://codexbeacon.local/schemas/button-event-body-v1.schema.json",
+  "title": "Codex Beacon BUTTON_EVENT body v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["event_id", "gesture", "duration_ms"],

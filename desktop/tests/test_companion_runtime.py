@@ -11,10 +11,10 @@ import time
 import unittest
 from pathlib import Path
 
-from peri6.companion import CompanionEvent, CompanionRuntime
-from peri6.host import HostEvent
-from peri6.packs.focus import ACTION_CANCEL, ACTION_START_PAUSE
-from peri6.packs.registry import AGENT_PACK_ID, FOCUS_PACK_ID
+from codex_beacon.companion import CompanionEvent, CompanionRuntime
+from codex_beacon.host import HostEvent
+from codex_beacon.packs.focus import ACTION_CANCEL, ACTION_START_PAUSE
+from codex_beacon.packs.registry import AGENT_PACK_ID, FOCUS_PACK_ID
 
 
 class CompanionRuntimeTests(unittest.TestCase):
@@ -39,14 +39,14 @@ class CompanionRuntimeTests(unittest.TestCase):
 
     def test_companion_module_help_does_not_open_the_gui(self) -> None:
         completed = subprocess.run(
-            [sys.executable, "-m", "peri6.companion.app", "--help"],
+            [sys.executable, "-m", "codex_beacon.companion.app", "--help"],
             capture_output=True,
             text=True,
             timeout=10,
             check=False,
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertIn("Peri6 first-party desktop companion", completed.stdout)
+        self.assertIn("Codex Beacon first-party desktop companion", completed.stdout)
 
     def test_runtime_switches_to_agent_and_accepts_a_loopback_event(self) -> None:
         events: queue.Queue[CompanionEvent] = queue.Queue()
@@ -74,7 +74,7 @@ class CompanionRuntimeTests(unittest.TestCase):
                 completed = subprocess.run(
                     [
                         sys.executable,
-                        str(repository / ".codex" / "hooks" / "peri6_agent_hook.py"),
+                        str(repository / ".codex" / "hooks" / "codex_beacon_hook.py"),
                     ],
                     input=json.dumps(
                         {
@@ -89,7 +89,7 @@ class CompanionRuntimeTests(unittest.TestCase):
                     text=True,
                     capture_output=True,
                     timeout=3,
-                    env=os.environ | {"PERI6_AGENT_CONFIG": str(config_path)},
+                    env=os.environ | {"CODEX_BEACON_CONFIG": str(config_path)},
                     check=False,
                 )
                 self.assertEqual(completed.returncode, 0, completed.stderr)

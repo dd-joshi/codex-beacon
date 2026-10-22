@@ -10,7 +10,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "desktop" / "src"))
 
-from peri6.protocol.crypto import (  # noqa: E402
+from codex_beacon.protocol.crypto import (  # noqa: E402
     EnvelopeError,
     auth_proof,
     b64url_decode,
@@ -19,12 +19,12 @@ from peri6.protocol.crypto import (  # noqa: E402
     open_envelope,
     seal_envelope,
 )
-from peri6.protocol.model import (  # noqa: E402
+from codex_beacon.protocol.model import (  # noqa: E402
     Capabilities,
     DeviceScene,
     ProtocolValidationError,
 )
-from peri6.testing import DeviceSimulator, SessionClosed  # noqa: E402
+from codex_beacon.testing import DeviceSimulator, SessionClosed  # noqa: E402
 
 
 EXAMPLES = REPO / "protocol" / "examples"
@@ -42,7 +42,7 @@ def authenticate(device: DeviceSimulator):
         "v": 1,
         "type": "HELLO",
         "request_id": REQUEST_ID,
-        "client_name": "Peri6 Desktop",
+        "client_name": "Codex Beacon Desktop",
         "client_version": "0.1.0",
         "client_nonce": b64url_encode(CLIENT_NONCE),
     }
@@ -441,7 +441,7 @@ class UnauthenticatedTests(unittest.TestCase):
                 "v": 1,
                 "type": "HELLO",
                 "request_id": REQUEST_ID,
-                "client_name": "Peri6 Desktop",
+                "client_name": "Codex Beacon Desktop",
                 "client_version": "0.1.0",
                 "client_nonce": b64url_encode(CLIENT_NONCE),
             }

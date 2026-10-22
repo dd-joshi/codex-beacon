@@ -5,7 +5,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from peri6.companion.presentation import (
+from codex_beacon.companion.presentation import (
     CellLabelGroup,
     ConnectionPhase,
     FocusPhase,
@@ -16,8 +16,8 @@ from peri6.companion.presentation import (
     reduce_event,
     sample_timeline_cells,
 )
-from peri6.companion.runtime import CompanionEvent
-from peri6.contracts import (
+from codex_beacon.companion.runtime import CompanionEvent
+from codex_beacon.contracts import (
     ActivePackOutput,
     Explanation,
     PackProposal,
@@ -28,8 +28,8 @@ from peri6.contracts import (
     Transition,
     VisualRecipe,
 )
-from peri6.host import HostEvent
-from peri6.transport import DeviceEvent
+from codex_beacon.host import HostEvent
+from codex_beacon.transport import DeviceEvent
 
 
 BLUE = RGB(0, 90, 210)
@@ -39,7 +39,7 @@ def output(
     state_key: str,
     progress: float,
     *,
-    pack_id: str = "com.peri6.focus",
+    pack_id: str = "com.codexbeacon.focus",
 ) -> ActivePackOutput:
     frame = RecipeFrame((BLUE,) * 6, 0, 1_000, Transition.STEP)
     timeline = Timeline((frame,), Playback.LOOP)
@@ -218,7 +218,7 @@ class PresentationStateTests(unittest.TestCase):
                         output(
                             f"agent.{state}",
                             0.0,
-                            pack_id="com.peri6.agent",
+                            pack_id="com.codexbeacon.agent",
                         ),
                     ),
                 )
@@ -242,7 +242,7 @@ class PresentationStateTests(unittest.TestCase):
             Playback.LOOP,
         )
         start_ns = 1_000_000_000
-        original = output("agent.working", 0.0, pack_id="com.peri6.agent")
+        original = output("agent.working", 0.0, pack_id="com.codexbeacon.agent")
         agent_output = replace(
             original,
             accepted_monotonic_ns=start_ns,

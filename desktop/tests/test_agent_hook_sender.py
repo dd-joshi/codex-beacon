@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 import unittest
 
-from peri6.packs.agent import AgentOutcome, AgentTask
-from peri6.packs.agent.hook_sender import normalize_hook_payload
+from codex_beacon.packs.agent import AgentOutcome, AgentTask
+from codex_beacon.packs.agent.hook_sender import normalize_hook_payload
 
 
 def payload(event: str, **extra: object) -> dict[str, object]:

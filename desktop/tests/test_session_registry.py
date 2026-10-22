@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from peri6.packs.agent.events import AgentObservation, AgentState
-from peri6.packs.agent.pack import AgentPack
+from codex_beacon.packs.agent.events import AgentObservation, AgentState
+from codex_beacon.packs.agent.pack import AgentPack
 from test_provider_events import _Context, _v2
 
 
@@ -61,7 +61,7 @@ class SessionRegistryTests(unittest.IsolatedAsyncioTestCase):
         await pack.stop()
 
     async def test_v1_stream_still_behaves_as_one_global_session(self) -> None:
-        from peri6.packs.agent.events import AgentOutcome, AgentTask
+        from codex_beacon.packs.agent.events import AgentOutcome, AgentTask
 
         payload_base = {
             "version": 1,

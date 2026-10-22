@@ -8,7 +8,7 @@ from importlib.resources import files
 from types import MappingProxyType
 from uuid import UUID, uuid4
 
-from peri6.contracts import (
+from codex_beacon.contracts import (
     ButtonGesture,
     ButtonInput,
     PackProposal,
@@ -18,7 +18,7 @@ from peri6.contracts import (
     validate_manifest,
     validate_proposal,
 )
-from peri6.packs.focus import (
+from codex_beacon.packs.focus import (
     ACTION_CANCEL,
     ACTION_RESET,
     ACTION_START_PAUSE,
@@ -27,7 +27,7 @@ from peri6.packs.focus import (
     completed_stages,
     create_pack,
 )
-from peri6.protocol import compile_proposal
+from codex_beacon.protocol import compile_proposal
 
 
 NANOSECONDS_PER_SECOND = 1_000_000_000
@@ -72,7 +72,7 @@ class _Context:
 
     @property
     def pack_id(self) -> str:
-        return "com.peri6.focus"
+        return "com.codexbeacon.focus"
 
     @property
     def activation_id(self) -> UUID:
@@ -132,12 +132,12 @@ class FocusPackContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(second, FocusPack)
         self.assertIsNot(first, second)
 
-        manifest_text = files("peri6.packs.focus").joinpath("manifest.json").read_text(
+        manifest_text = files("codex_beacon.packs.focus").joinpath("manifest.json").read_text(
             encoding="utf-8"
         )
         manifest = validate_manifest(json.loads(manifest_text))
-        self.assertEqual(manifest.pack_id, "com.peri6.focus")
-        self.assertEqual(manifest.entry_point, "peri6.packs.focus:create_pack")
+        self.assertEqual(manifest.pack_id, "com.codexbeacon.focus")
+        self.assertEqual(manifest.entry_point, "codex_beacon.packs.focus:create_pack")
 
     def test_six_stage_boundaries_are_exact(self) -> None:
         duration = 60 * NANOSECONDS_PER_SECOND

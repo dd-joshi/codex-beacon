@@ -12,8 +12,8 @@ from uuid import uuid4
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "desktop" / "src"))
 
-import peri6.host.manager as manager_module  # noqa: E402
-from peri6.contracts import (  # noqa: E402
+import codex_beacon.host.manager as manager_module  # noqa: E402
+from codex_beacon.contracts import (  # noqa: E402
     AttentionClass,
     Explanation,
     PackProposal,
@@ -26,7 +26,7 @@ from peri6.contracts import (  # noqa: E402
     TrayActionInput,
     VisualRecipe,
 )
-from peri6.host import ActivePackManager, PackActivationError  # noqa: E402
+from codex_beacon.host import ActivePackManager, PackActivationError  # noqa: E402
 
 
 def manifest(
@@ -152,7 +152,7 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_invalid_settings_leave_current_activation_untouched(self) -> None:
         old = PublishingPack("old.ready")
-        generation = await self.manager.activate(manifest("dev.peri6.old"), {}, lambda: old)
+        generation = await self.manager.activate(manifest("dev.codexbeacon.old"), {}, lambda: old)
         dispatch_count = len(self.dispatches)
         factory_called = False
 
@@ -171,14 +171,14 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaisesRegex(ValueError, "invalid settings"):
             await self.manager.activate(
-                manifest("dev.peri6.invalid", settings_schema=schema),
+                manifest("dev.codexbeacon.invalid", settings_schema=schema),
                 {},
                 candidate_factory,
             )
 
         self.assertFalse(factory_called)
         self.assertEqual(self.manager.generation, generation)
-        self.assertEqual(self.manager.active_pack_id, "dev.peri6.old")
+        self.assertEqual(self.manager.active_pack_id, "dev.codexbeacon.old")
         self.assertEqual(old.stop_calls, 0)
         self.assertEqual(len(self.dispatches), dispatch_count)
         self.assertEqual(self.manager.current_output.proposal.state_key, "old.ready")
@@ -196,7 +196,7 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
                 inner_self.second = await context.publish(proposal("buffer.second", red=20))
 
         pack = BufferingPack()
-        await self.manager.activate(manifest("dev.peri6.buffer"), {}, lambda: pack)
+        await self.manager.activate(manifest("dev.codexbeacon.buffer"), {}, lambda: pack)
 
         self.assertEqual(scene_counts_during_start, [0])
         self.assertEqual(pack.first.output_sequence, 1)
@@ -219,16 +219,16 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
                 )
 
         old = StopPublisher("old.ready")
-        await self.manager.activate(manifest("dev.peri6.old"), {}, lambda: old)
+        await self.manager.activate(manifest("dev.codexbeacon.old"), {}, lambda: old)
         candidate = RecordingPack()
         await self.manager.activate(
-            manifest("dev.peri6.candidate"), {}, lambda: candidate
+            manifest("dev.codexbeacon.candidate"), {}, lambda: candidate
         )
 
         self.assertEqual(
             old.stop_receipt.status, PublishStatus.REJECTED_STALE_ACTIVATION
         )
-        self.assertEqual(self.manager.active_pack_id, "dev.peri6.candidate")
+        self.assertEqual(self.manager.active_pack_id, "dev.codexbeacon.candidate")
         self.assertFalse(
             any(
                 event.output is not None
@@ -239,7 +239,7 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_generation_is_rechecked_after_compilation(self) -> None:
         pack = RecordingPack()
-        await self.manager.activate(manifest("dev.peri6.compile"), {}, lambda: pack)
+        await self.manager.activate(manifest("dev.codexbeacon.compile"), {}, lambda: pack)
         activation = self.manager._activation
         self.assertIsNotNone(activation)
         assert activation is not None
@@ -270,7 +270,7 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
 
         pack = FailingPack()
         with self.assertRaisesRegex(PackActivationError, "start exploded"):
-            await self.manager.activate(manifest("dev.peri6.failing"), {}, lambda: pack)
+            await self.manager.activate(manifest("dev.codexbeacon.failing"), {}, lambda: pack)
 
         self.assertEqual(pack.receipt.status, PublishStatus.ACCEPTED)
         self.assertEqual(pack.stop_calls, 1)
@@ -290,7 +290,7 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
         pack = HungStartPack()
         with self.assertRaisesRegex(PackActivationError, "start timed out"):
             await self.manager.activate(
-                manifest("dev.peri6.hung-start"), {}, lambda: pack
+                manifest("dev.codexbeacon.hung-start"), {}, lambda: pack
             )
 
         self.assertTrue(pack.started.is_set())
@@ -311,12 +311,12 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.Event().wait()
 
         old = HungStopPack()
-        await self.manager.activate(manifest("dev.peri6.hung"), {}, lambda: old)
+        await self.manager.activate(manifest("dev.codexbeacon.hung"), {}, lambda: old)
         candidate = RecordingPack()
 
         with self.assertRaisesRegex(PackActivationError, "stop timed out"):
             await self.manager.activate(
-                manifest("dev.peri6.never-started"), {}, lambda: candidate
+                manifest("dev.codexbeacon.never-started"), {}, lambda: candidate
             )
 
         self.assertTrue(old.stop_started.is_set())
@@ -344,12 +344,12 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
 
         old = JobPack()
         old_generation = await self.manager.activate(
-            manifest("dev.peri6.jobs"), {}, lambda: old
+            manifest("dev.codexbeacon.jobs"), {}, lambda: old
         )
         await asyncio.sleep(0)
         current = RecordingPack()
         current_generation = await self.manager.activate(
-            manifest("dev.peri6.current"), {}, lambda: current
+            manifest("dev.codexbeacon.current"), {}, lambda: current
         )
         await asyncio.sleep(0)
 
@@ -365,7 +365,7 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
     async def test_expiry_replay_and_shutdown_are_safe(self) -> None:
         pack = PublishingPack("short.ready", ttl_ms=250)
         generation = await self.manager.activate(
-            manifest("dev.peri6.short"), {}, lambda: pack
+            manifest("dev.codexbeacon.short"), {}, lambda: pack
         )
         await asyncio.sleep(0)
 
@@ -392,17 +392,17 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
     async def test_factory_reuse_is_rejected_before_current_pack_is_touched(self) -> None:
         pack = RecordingPack()
         generation = await self.manager.activate(
-            manifest("dev.peri6.fresh"), {}, lambda: pack
+            manifest("dev.codexbeacon.fresh"), {}, lambda: pack
         )
         dispatch_count = len(self.dispatches)
 
         with self.assertRaisesRegex(PackActivationError, "fresh instance"):
             await self.manager.activate(
-                manifest("dev.peri6.reused"), {}, lambda: pack
+                manifest("dev.codexbeacon.reused"), {}, lambda: pack
             )
 
         self.assertEqual(self.manager.generation, generation)
-        self.assertEqual(self.manager.active_pack_id, "dev.peri6.fresh")
+        self.assertEqual(self.manager.active_pack_id, "dev.codexbeacon.fresh")
         self.assertEqual(pack.stop_calls, 0)
         self.assertEqual(len(self.dispatches), dispatch_count)
 
@@ -421,11 +421,11 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
         first = GatedPack()
         second = RecordingPack()
         first_switch = asyncio.create_task(
-            self.manager.activate(manifest("dev.peri6.first"), {}, lambda: first)
+            self.manager.activate(manifest("dev.codexbeacon.first"), {}, lambda: first)
         )
         await first.entered.wait()
         second_switch = asyncio.create_task(
-            self.manager.activate(manifest("dev.peri6.second"), {}, lambda: second)
+            self.manager.activate(manifest("dev.codexbeacon.second"), {}, lambda: second)
         )
         await asyncio.sleep(0)
         self.assertFalse(second_switch.done())
@@ -437,7 +437,7 @@ class PackHostManagerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((first_generation, second_generation), (1, 2))
         self.assertEqual(first.stop_calls, 1)
         self.assertEqual(second.start_calls, 1)
-        self.assertEqual(self.manager.active_pack_id, "dev.peri6.second")
+        self.assertEqual(self.manager.active_pack_id, "dev.codexbeacon.second")
         activated = [event for event in self.events if event.kind == "activated"]
         self.assertEqual([event.generation for event in activated], [1, 2])
 

@@ -10,7 +10,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "desktop" / "src"))
 
-from peri6.protocol.crypto import (  # noqa: E402
+from codex_beacon.protocol.crypto import (  # noqa: E402
     auth_proof,
     b64url_decode,
     b64url_encode,
@@ -18,7 +18,7 @@ from peri6.protocol.crypto import (  # noqa: E402
     open_envelope,
     seal_envelope,
 )
-from peri6.testing import DeviceSimulator  # noqa: E402
+from codex_beacon.testing import DeviceSimulator  # noqa: E402
 
 
 SECRET = bytes(range(32))

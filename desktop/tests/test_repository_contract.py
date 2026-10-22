@@ -12,7 +12,7 @@ from jsonschema import Draft202012Validator, ValidationError
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "desktop" / "src"))
 
-from peri6.protocol.model import DEFAULT_CAPABILITIES  # noqa: E402
+from codex_beacon.protocol.model import DEFAULT_CAPABILITIES  # noqa: E402
 
 
 def schema(name: str) -> dict:
@@ -120,9 +120,12 @@ class RepositoryContractTests(unittest.TestCase):
         if not (REPO / ".git").exists():
             self.skipTest("source-control metadata is absent from this workspace copy")
         forbidden = (
-            REPO / "firmware" / "include" / "peri6_secrets.h",
             REPO / "desktop" / "secrets.json",
             REPO / "desktop" / "local-config.json",
+            REPO / "desktop" / "agent-hook.json",
+            REPO / "desktop" / "agent-hook.log",
+            REPO / "desktop" / "phone-status.json",
+            REPO / "desktop" / "phone-status.log",
         )
         for path in forbidden:
             relative = path.relative_to(REPO).as_posix()

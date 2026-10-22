@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "peri6-desktop"
+name = "codex-beacon"
 version = "0.1.0"
-description = "Peri6 first-party Windows companion and local device host"
+description = "Software-only Codex status phone companion"
 requires-python = ">=3.10"
 dependencies = [
   "jsonschema>=4.23,<5",
@@ -19,19 +19,18 @@ dev = [
 ]
 
 [project.gui-scripts]
-peri6 = "peri6.companion.app:main"
-peri6-test = "peri6.tester.app:main"
+codex-beacon = "codex_beacon.companion.app:main"
 
 [project.scripts]
-peri6-setup-agent = "peri6.agent_setup:main"
+codex-beacon-setup = "codex_beacon.agent_setup:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"peri6.packs.focus" = ["manifest.json"]
-"peri6.packs.agent" = ["manifest.json"]
-"peri6.companion" = [
+"codex_beacon.packs.focus" = ["manifest.json"]
+"codex_beacon.packs.agent" = ["manifest.json"]
+"codex_beacon.companion" = [
   "web/*.html",
   "web/*.css",
   "web/*.js",

@@ -6,3 +6,9 @@
 *.py text eol=lf
 *.json text eol=lf
 *.toml text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.webmanifest text eol=lf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

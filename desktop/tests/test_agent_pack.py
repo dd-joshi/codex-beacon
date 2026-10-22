@@ -10,7 +10,7 @@ from importlib.resources import files
 from types import MappingProxyType
 from uuid import UUID
 
-from peri6.contracts import (
+from codex_beacon.contracts import (
     PackProposal,
     Playback,
     PublishReceipt,
@@ -18,8 +18,8 @@ from peri6.contracts import (
     validate_manifest,
     validate_proposal,
 )
-from peri6.companion.presentation import sample_timeline_cells
-from peri6.packs.agent import (
+from codex_beacon.companion.presentation import sample_timeline_cells
+from codex_beacon.packs.agent import (
     AgentObservation,
     AgentOutcome,
     AgentPack,
@@ -27,8 +27,8 @@ from peri6.packs.agent import (
     AgentTask,
     create_pack,
 )
-from peri6.packs.agent.pack import STALE_ACTIVE_NS, _stale_after_ns
-from peri6.protocol import compile_proposal
+from codex_beacon.packs.agent.pack import STALE_ACTIVE_NS, _stale_after_ns
+from codex_beacon.protocol import compile_proposal
 
 
 class _Clock:
@@ -53,7 +53,7 @@ class _Context:
 
     @property
     def pack_id(self) -> str:
-        return "com.peri6.agent"
+        return "com.codexbeacon.agent"
 
     @property
     def activation_id(self) -> UUID:
@@ -139,12 +139,12 @@ class AgentPackContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNot(first, second)
         manifest = validate_manifest(
             json.loads(
-                files("peri6.packs.agent")
+                files("codex_beacon.packs.agent")
                 .joinpath("manifest.json")
                 .read_text(encoding="utf-8")
             )
         )
-        self.assertEqual(manifest.pack_id, "com.peri6.agent")
+        self.assertEqual(manifest.pack_id, "com.codexbeacon.agent")
         self.assertEqual(manifest.permissions, ("application.loopback.listen",))
 
     async def test_state_flow_distinguishes_verified_success_from_stop(self) -> None:

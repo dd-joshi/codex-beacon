@@ -6,8 +6,8 @@ import time
 import unittest
 from datetime import datetime, timezone
 
-from peri6.packs.agent.events import AgentObservation
-from peri6.packs.agent.pack import AgentPack
+from codex_beacon.packs.agent.events import AgentObservation
+from codex_beacon.packs.agent.pack import AgentPack
 
 
 def _v2(
