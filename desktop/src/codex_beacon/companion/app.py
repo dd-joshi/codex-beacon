@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import queue
 import socket
+import sys
 import time
 from collections import deque
 from dataclasses import replace
@@ -16,8 +18,10 @@ from PySide6.QtGui import (
     QColor,
     QCloseEvent,
     QDesktopServices,
+    QFont,
     QHideEvent,
     QPainter,
+    QPen,
     QRadialGradient,
     QShowEvent,
 )
@@ -77,33 +81,41 @@ from codex_beacon.transport import ProtocolClientError
 
 WINDOW_STYLE = """
 QMainWindow, QDialog {
-    background: #f7f7fa;
-    color: #171922;
+    background: #0f1115;
+    color: #f3f5fb;
 }
 QWidget {
+    color: #e7eaf2;
     font-family: "Segoe UI";
     font-size: 10pt;
 }
+QLabel#Brand {
+    color: #f3f5fb;
+    font-size: 16pt;
+    font-weight: 650;
+}
 QToolButton#PackButton {
-    color: #30333c;
+    color: #aeb6c8;
     background: transparent;
     border: none;
     border-radius: 7px;
     min-height: 28px;
-    padding: 0 6px;
+    padding: 0 8px;
     font-size: 12pt;
+    font-weight: 600;
 }
 QToolButton#PackButton:hover, QToolButton#PackButton:focus {
-    background: #ececf1;
+    color: #f3f5fb;
+    background: #1b1f2a;
 }
 QToolButton#PackButton::menu-indicator {
     image: none;
     width: 0px;
 }
 QMenu {
-    background: #ffffff;
-    color: #20222a;
-    border: 1px solid #dfe1e8;
+    background: #171a23;
+    color: #e7eaf2;
+    border: 1px solid #2b3040;
     border-radius: 8px;
     padding: 6px;
 }
@@ -112,11 +124,12 @@ QMenu::item {
     padding: 7px 30px 7px 12px;
 }
 QMenu::item:selected {
-    background: #eeeaf9;
+    color: #f3f5fb;
+    background: #1e2635;
 }
 QMenu::separator {
     height: 1px;
-    background: #e7e8ed;
+    background: #2b3040;
     margin: 5px 7px;
 }
 QToolButton#StatusDot {
@@ -129,9 +142,10 @@ QToolButton#StatusDot {
     padding: 0;
 }
 QToolButton#StatusDot:hover {
-    background: #ececf1;
+    background: #1b1f2a;
 }
 QToolButton#SettingsButton {
+    color: #aeb6c8;
     border: none;
     border-radius: 16px;
     min-width: 32px;
@@ -139,68 +153,161 @@ QToolButton#SettingsButton {
     font-size: 15pt;
 }
 QToolButton#SettingsButton:hover {
-    background: #eceaf3;
+    color: #f3f5fb;
+    background: #1b1f2a;
 }
 QLabel#Timer {
-    color: #171922;
-    font-size: 33pt;
+    color: #f3f5fb;
+    font-size: 18pt;
     font-weight: 600;
 }
+QLabel#Timer[timerMode="true"] {
+    font-size: 30pt;
+}
 QLabel#Notice {
-    color: #9d2d28;
-    background: #fff0ef;
+    color: #fca5a5;
+    background: #2a1518;
+    border: 1px solid #5a252a;
     border-radius: 7px;
     padding: 6px 10px;
 }
-QToolButton#SessionControl {
-    color: #686c77;
+QToolButton#PrimaryAction, QToolButton#SecondaryAction {
+    color: #9aa2b5;
     background: transparent;
     border: none;
-    border-radius: 7px;
-    min-height: 29px;
-    padding: 0 8px;
-    font-size: 9pt;
+    border-radius: 8px;
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 9.5pt;
+    font-weight: 600;
 }
-QToolButton#SessionControl:hover {
-    color: #272a32;
-    background: #ececf1;
+QToolButton#PrimaryAction {
+    color: #ffffff;
+    background: #2563eb;
+    border: 1px solid #3b82f6;
 }
-QToolButton#SessionControl:pressed {
-    background: #e1e1e8;
+QToolButton#PrimaryAction:hover {
+    background: #3b82f6;
 }
-QLineEdit, QSpinBox, QPlainTextEdit {
-    background: #ffffff;
-    border: 1px solid #dfe1e8;
-    border-radius: 7px;
+QToolButton#PrimaryAction:pressed {
+    background: #1d4ed8;
+}
+QToolButton#SecondaryAction:hover {
+    color: #f3f5fb;
+    background: #1b1f2a;
+}
+QToolButton#SecondaryAction:pressed {
+    background: #232a38;
+}
+QLineEdit, QSpinBox, QPlainTextEdit, QTextEdit {
+    color: #e7eaf2;
+    background: #12151c;
+    border: 1px solid #2b3040;
+    border-radius: 8px;
     padding: 5px 7px;
+    selection-color: #ffffff;
+    selection-background-color: #1e3a5f;
 }
-QLineEdit:focus, QSpinBox:focus, QPlainTextEdit:focus {
-    border-color: #8b63ee;
+QLineEdit:focus, QSpinBox:focus, QPlainTextEdit:focus, QTextEdit:focus {
+    border-color: #3b82f6;
+}
+QPlainTextEdit#Diagnostics {
+    color: #c9d1e0;
+    font-family: "Cascadia Mono", "Consolas", monospace;
+    font-size: 10.5pt;
 }
 QPushButton {
-    background: #ffffff;
-    border: 1px solid #d8dae2;
-    border-radius: 7px;
-    min-height: 30px;
+    color: #d7dce8;
+    background: transparent;
+    border: 1px solid #2b3040;
+    border-radius: 8px;
+    min-height: 32px;
     padding: 0 12px;
 }
 QPushButton:hover {
-    background: #f0eef7;
+    color: #f3f5fb;
+    background: #1b1f2a;
 }
-QPushButton:default {
+QPushButton:pressed {
+    background: #232a38;
+}
+QPushButton:default, QPushButton#Primary {
     color: #ffffff;
-    background: #7651d9;
-    border-color: #7651d9;
+    background: #2563eb;
+    border-color: #3b82f6;
+}
+QPushButton:default:hover, QPushButton#Primary:hover {
+    background: #3b82f6;
 }
 QTabWidget::pane {
-    border: 1px solid #dfe1e8;
-    border-radius: 7px;
-    background: #ffffff;
+    border: none;
+    background: transparent;
 }
 QTabBar::tab {
-    padding: 7px 13px;
+    color: #8a93a8;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 9px 14px;
+    margin-right: 6px;
+}
+QTabBar::tab:selected {
+    color: #f3f5fb;
+    border-bottom: 2px solid #3b82f6;
+}
+QTabBar::tab:hover:!selected {
+    color: #c9d1e0;
+}
+QCheckBox {
+    color: #d7dce8;
+    spacing: 8px;
+}
+QToolTip {
+    color: #e7eaf2;
+    background: #171a23;
+    border: 1px solid #2b3040;
+    padding: 5px 7px;
+}
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 2px;
+}
+QScrollBar::handle:vertical {
+    background: #2b3040;
+    border-radius: 5px;
+    min-height: 24px;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
 }
 """
+
+
+def _apply_dark_title_bar(widget: QWidget) -> None:
+    """Ask Windows to render the native title bar in dark mode."""
+
+    if sys.platform != "win32":
+        return
+    try:
+        hwnd = int(widget.winId())
+        value = ctypes.c_int(1)
+        dwmapi = ctypes.windll.dwmapi
+        for attribute in (20, 19):
+            if (
+                dwmapi.DwmSetWindowAttribute(
+                    hwnd,
+                    attribute,
+                    ctypes.byref(value),
+                    ctypes.sizeof(value),
+                )
+                == 0
+            ):
+                break
+    except Exception:
+        # Dark title bars are cosmetic; never let an unsupported Windows
+        # build prevent the companion from opening.
+        pass
 
 
 class LightStrip(QWidget):
@@ -239,14 +346,14 @@ class LightStrip(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        diameter = 18.0
-        gap = 17.0
+        diameter = 30.0
+        gap = 14.0
         total_width = 6 * diameter + 5 * gap
         start_x = (self.width() - total_width) / 2
-        top = 63.0 if self._groups else (self.height() - diameter) / 2
+        top = 58.0 if self._groups else (self.height() - diameter) / 2
 
         if self._groups:
-            painter.setPen(QColor("#5f6370"))
+            painter.setPen(QColor("#8a93a8"))
             label_font = painter.font()
             label_font.setPointSizeF(8.5)
             painter.setFont(label_font)
@@ -265,14 +372,14 @@ class LightStrip(QWidget):
                     value_font.setPointSizeF(9.5)
                     value_font.setBold(True)
                     painter.setFont(value_font)
-                    painter.setPen(QColor("#242731"))
+                    painter.setPen(QColor("#e7eaf2"))
                     painter.drawText(
                         QRectF(center - 62, 24, 124, 20),
                         Qt.AlignmentFlag.AlignCenter,
                         group.value,
                     )
                     painter.setFont(label_font)
-                    painter.setPen(QColor("#5f6370"))
+                    painter.setPen(QColor("#8a93a8"))
 
         for index, rgb in enumerate(self._cells):
             left = start_x + index * (diameter + gap)
@@ -283,22 +390,71 @@ class LightStrip(QWidget):
                 base = QColor(rgb.r, rgb.g, rgb.b)
                 if max(rgb.r, rgb.g, rgb.b) < 48:
                     base = base.lighter(260)
-                glow = QColor(base.lighter(145))
-                glow.setAlpha(34)
+                glow = QRadialGradient(
+                    rect.center(),
+                    diameter * 0.75,
+                )
+                center_glow = QColor(base)
+                center_glow.setAlpha(120)
+                edge_glow = QColor(base)
+                edge_glow.setAlpha(0)
+                glow.setColorAt(0.0, center_glow)
+                glow.setColorAt(0.58, center_glow)
+                glow.setColorAt(1.0, edge_glow)
                 painter.setPen(Qt.PenStyle.NoPen)
                 painter.setBrush(glow)
-                painter.drawEllipse(rect.adjusted(-6, -6, 6, 6))
+                painter.drawEllipse(
+                    rect.adjusted(
+                        -diameter * 0.25,
+                        -diameter * 0.25,
+                        diameter * 0.25,
+                        diameter * 0.25,
+                    )
+                )
 
                 gradient = QRadialGradient(rect.center(), diameter / 2)
                 gradient.setColorAt(0.0, base.lighter(175))
                 gradient.setColorAt(0.62, base.lighter(125))
                 gradient.setColorAt(1.0, base.darker(118))
                 painter.setBrush(gradient)
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.drawEllipse(rect)
             else:
-                painter.setBrush(QColor("#f0f1f4"))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.setPen(QPen(QColor("#3a4050"), 1.5))
+                painter.drawEllipse(rect.adjusted(0.75, 0.75, -0.75, -0.75))
 
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawEllipse(rect)
+
+class ElidedLabel(QLabel):
+    """A single-line label that keeps its full text in the tooltip."""
+
+    def __init__(self, text: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._full_text = text
+        self.setMinimumWidth(0)
+        self.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
+        self.set_full_text(text)
+
+    def set_full_text(self, text: str) -> None:
+        self._full_text = text
+        self.setToolTip(text)
+        self._refresh_text()
+
+    def _refresh_text(self) -> None:
+        self.setText(
+            self.fontMetrics().elidedText(
+                self._full_text,
+                Qt.TextElideMode.ElideMiddle,
+                max(0, self.width() - 2),
+            )
+        )
+
+    def resizeEvent(self, event: object) -> None:
+        super().resizeEvent(event)  # type: ignore[arg-type]
+        self._refresh_text()
 
 
 class SettingsDialog(QDialog):
@@ -330,6 +486,7 @@ class SettingsDialog(QDialog):
         general_layout.addLayout(form)
 
         apply_duration = QPushButton("Apply duration and reset")
+        apply_duration.setObjectName("Primary")
         apply_duration.clicked.connect(self._apply_duration)
         general_layout.addWidget(apply_duration, 0, Qt.AlignmentFlag.AlignRight)
         general_layout.addStretch(1)
@@ -342,18 +499,16 @@ class SettingsDialog(QDialog):
         agent_title.setStyleSheet("font-size: 12pt; font-weight: 600;")
         agent_layout.addWidget(agent_title)
         agent_copy = QLabel(
-            "Select Agent from the pack menu, then review and trust Codex Beacon's "
-            "five User Config hooks in Codex using /hooks. Codex Beacon receives "
-            "only state "
-            "changes such as thinking, testing, and ready for review—never "
-            "prompts, commands, file paths, or tool output."
+            "1. Select Agent from the mode menu.\n"
+            "2. In Codex, open /hooks and trust Codex Beacon's five User Config hooks.\n"
+            "3. Keep Codex Beacon running. It receives only state changes—never "
+            "prompts, commands, paths, or tool output."
         )
         agent_copy.setWordWrap(True)
         agent_layout.addWidget(agent_copy)
-        agent_path = QLabel(str(owner.agent_config_path))
-        agent_path.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        agent_path.setStyleSheet("color: #686c77;")
-        agent_path.setWordWrap(True)
+        agent_path = ElidedLabel(str(owner.agent_config_path))
+        agent_path.setStyleSheet("color: #8a93a8;")
+        agent_path.setAccessibleName("Agent hook configuration path")
         agent_layout.addWidget(agent_path)
         agent_layout.addStretch(1)
         tabs.addTab(agent, "Agent")
@@ -375,7 +530,7 @@ class SettingsDialog(QDialog):
 
         phone_form = QFormLayout()
         phone_form.setFieldGrowthPolicy(
-            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
         )
         self.phone_enabled = QCheckBox("Serve the status page on this PC")
         self.phone_enabled.setChecked(
@@ -390,15 +545,17 @@ class SettingsDialog(QDialog):
             else DEFAULT_PHONE_STATUS_PORT
         )
         self.phone_port.setAccessibleName("Phone status page port")
+        self.phone_port.setMaximumWidth(160)
         phone_form.addRow("Port", self.phone_port)
-        self.phone_url = QLabel(owner.phone_url or "Not running")
-        self.phone_url.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
-        self.phone_url.setWordWrap(True)
+        self.phone_url = ElidedLabel(owner.phone_url or "Not running")
+        self.phone_url.setAccessibleName("Phone status page URL")
         phone_form.addRow("Phone URL", self.phone_url)
         self.phone_status = QLabel(owner.phone_status_text())
         self.phone_status.setWordWrap(True)
+        self.phone_status.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
         phone_form.addRow("Status", self.phone_status)
         phone_layout.addLayout(phone_form)
 
@@ -422,9 +579,10 @@ class SettingsDialog(QDialog):
             "will block the page."
         )
         phone_hint.setWordWrap(True)
-        phone_hint.setStyleSheet("color: #686c77;")
+        phone_hint.setStyleSheet("color: #8a93a8;")
         phone_layout.addWidget(phone_hint)
         apply_phone = QPushButton("Apply phone settings")
+        apply_phone.setObjectName("Primary")
         apply_phone.clicked.connect(self._apply_phone)
         phone_layout.addWidget(apply_phone, 0, Qt.AlignmentFlag.AlignRight)
         phone_layout.addStretch(1)
@@ -466,6 +624,7 @@ class SettingsDialog(QDialog):
         diagnostics_layout = QVBoxLayout(diagnostics)
         diagnostics_layout.setContentsMargins(12, 12, 12, 12)
         self.log = QPlainTextEdit()
+        self.log.setObjectName("Diagnostics")
         self.log.setReadOnly(True)
         self.log.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
         self.log.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -477,6 +636,10 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         self.refresh()
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        _apply_dark_title_bar(self)
 
     def refresh(self) -> None:
         state = self.owner.state
@@ -493,7 +656,7 @@ class SettingsDialog(QDialog):
         self.log.setPlainText("\n".join(self.owner.activity))
         scrollbar = self.log.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
-        self.phone_url.setText(self.owner.phone_url or "Not running")
+        self.phone_url.set_full_text(self.owner.phone_url or "Not running")
         self.phone_status.setText(self.owner.phone_status_text())
 
     def _apply_phone(self) -> None:
@@ -622,12 +785,12 @@ class CompanionWindow(QMainWindow):
         header = QHBoxLayout()
         header.setSpacing(2)
         brand = QLabel("Codex Beacon")
-        brand.setStyleSheet("font-size: 16pt; font-weight: 650; color: #171922;")
+        brand.setObjectName("Brand")
         header.addWidget(brand)
 
         self.pack_button = QToolButton()
         self.pack_button.setObjectName("PackButton")
-        self.pack_button.setText("Focus")
+        self.pack_button.setText("Focus  ▾")
         self.pack_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.pack_button.setAccessibleName("Focus mode. Open mode selector")
         self.pack_button.setToolTip("Focus mode")
@@ -684,7 +847,7 @@ class CompanionWindow(QMainWindow):
         controls.setSpacing(3)
         controls.addStretch(1)
         self.primary = QToolButton()
-        self.primary.setObjectName("SessionControl")
+        self.primary.setObjectName("PrimaryAction")
         self.primary.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.primary.setIconSize(QSize(12, 12))
         self.primary.clicked.connect(
@@ -693,7 +856,7 @@ class CompanionWindow(QMainWindow):
         controls.addWidget(self.primary)
 
         self.stop = QToolButton()
-        self.stop.setObjectName("SessionControl")
+        self.stop.setObjectName("SecondaryAction")
         self.stop.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.stop.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop)
@@ -1005,7 +1168,7 @@ class CompanionWindow(QMainWindow):
             self._publish_status()
 
     def _render(self) -> None:
-        self.pack_button.setText(self.state.active_pack_name)
+        self.pack_button.setText(f"{self.state.active_pack_name}  ▾")
         self.pack_button.setToolTip(f"{self.state.active_pack_name} mode")
         self.pack_button.setAccessibleName(
             f"{self.state.active_pack_name} mode. Open mode selector"
@@ -1014,6 +1177,15 @@ class CompanionWindow(QMainWindow):
             action.setChecked(pack_id == self.state.active_pack_id)
 
         self.timer.setText(self.state.main_text)
+        self.timer.setProperty(
+            "timerMode",
+            "true" if self.state.is_focus else "false",
+        )
+        self.timer.style().unpolish(self.timer)
+        self.timer.style().polish(self.timer)
+        timer_font = self.timer.font()
+        timer_font.setFeature(QFont.Tag("tnum"), 1)
+        self.timer.setFont(timer_font)
         self.timer.setAccessibleName(
             "Focus time remaining" if self.state.is_focus else self.state.headline
         )
@@ -1048,16 +1220,16 @@ class CompanionWindow(QMainWindow):
     def _status_chip_presentation(self) -> tuple[str, str]:
         if self._config is None:
             if self._status_server is not None:
-                return "Phone status page ready", "#20b26b"
+                return "Phone page serving, no hardware", "#22c55e"
             if self._status_server_error:
-                return "Phone status page needs attention", "#c4483e"
-            return "Phone status page not running", "#969aa5"
+                return "Phone page needs attention", "#ef4444"
+            return "Phone page not running", "#6e768a"
         dot_color = {
-            ConnectionPhase.CONNECTED: "#20b26b",
-            ConnectionPhase.CONNECTING: "#d18a12",
-            ConnectionPhase.RECONNECTING: "#d18a12",
-            ConnectionPhase.ATTENTION: "#c4483e",
-            ConnectionPhase.DISCONNECTED: "#969aa5",
+            ConnectionPhase.CONNECTED: "#22c55e",
+            ConnectionPhase.CONNECTING: "#facc15",
+            ConnectionPhase.RECONNECTING: "#facc15",
+            ConnectionPhase.ATTENTION: "#ef4444",
+            ConnectionPhase.DISCONNECTED: "#6e768a",
         }[self.state.connection]
         return self.state.connection_label, dot_color
 
@@ -1065,9 +1237,14 @@ class CompanionWindow(QMainWindow):
         status_label, dot_color = self._status_chip_presentation()
         self.status_chip.setText("●")
         self.status_chip.setStyleSheet(f"color: {dot_color};")
-        self.status_chip.setToolTip(f"Codex Beacon {status_label}")
+        tooltip = (
+            status_label
+            if self._config is None
+            else f"Codex Beacon {status_label}"
+        )
+        self.status_chip.setToolTip(tooltip)
         self.status_chip.setAccessibleName(
-            f"Codex Beacon {status_label}. Open settings"
+            f"Codex Beacon status: {status_label}. Open settings"
         )
 
     def _render_lights(self) -> None:
@@ -1082,6 +1259,7 @@ class CompanionWindow(QMainWindow):
 
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
+        _apply_dark_title_bar(self)
         if hasattr(self, "_animation_timer"):
             self._animation_timer.start()
 

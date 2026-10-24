@@ -105,19 +105,21 @@
       const value = Array.isArray(values) ? values[index] : null;
       if (!Array.isArray(value) || value.length < 3) {
         dot.style.backgroundColor = "";
+        dot.style.borderColor = "";
         dot.style.boxShadow = "";
         continue;
       }
       const red = clampColor(value[0]);
       const green = clampColor(value[1]);
       const blue = clampColor(value[2]);
-      dot.style.backgroundColor = "rgb(" + red + ", " + green + ", " + blue + ")";
-      if (red + green + blue > 36) {
-        dot.style.boxShadow =
-          "0 0 16px rgba(" + red + ", " + green + ", " + blue + ", 0.55)";
-      } else {
-        dot.style.boxShadow = "";
-      }
+      const active = red + green + blue > 36;
+      dot.style.backgroundColor = active
+        ? "rgb(" + red + ", " + green + ", " + blue + ")"
+        : "";
+      dot.style.borderColor = active ? "transparent" : "";
+      dot.style.boxShadow = active
+        ? "0 0 24px 6px rgba(" + red + ", " + green + ", " + blue + ", 0.6)"
+        : "";
     }
   }
 
