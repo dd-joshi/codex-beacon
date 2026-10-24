@@ -38,6 +38,7 @@ def state_for(
     expires_ns: int = NOW_NS + 60_000_000_000,
     output: OutputPhase = OutputPhase.ACTIVE,
     focus: FocusPhase = FocusPhase.IDLE,
+    semantic_cells: tuple[RGB, ...] = (BLUE,) * 6,
 ) -> PresentationState:
     return replace(
         PresentationState.initial(1),
@@ -54,7 +55,7 @@ def state_for(
         activation_generation=4,
         output_sequence=7,
         output=output,
-        semantic_cells=(BLUE,) * 6,
+        semantic_cells=semantic_cells,
         focus=focus,
     )
 
@@ -101,6 +102,74 @@ class StatusProjectionTests(unittest.TestCase):
                     now_utc=NOW,
                 )
                 self.assertEqual(snapshot.notify, intent)
+
+    def test_unified_tone_keeps_notification_policy_and_payload_shape(self) -> None:
+        cases = (
+            (
+                "agent.review",
+                AGENT_PACK_ID,
+                "Agent",
+                FocusPhase.IDLE,
+                RGB(174, 139, 242),
+                NotificationIntent.CHIME,
+                RGB(34, 197, 94),
+            ),
+            (
+                "focus.paused",
+                FOCUS_PACK_ID,
+                "Focus",
+                FocusPhase.PAUSED,
+                RGB(188, 96, 0),
+                NotificationIntent.NONE,
+                RGB(230, 149, 10),
+            ),
+            (
+                "focus.cancelled",
+                FOCUS_PACK_ID,
+                "Focus",
+                FocusPhase.CANCELLED,
+                RGB(156, 12, 8),
+                NotificationIntent.NONE,
+                None,
+            ),
+        )
+        for (
+            state_key,
+            pack_id,
+            pack_name,
+            focus,
+            pack_color,
+            expected_notify,
+            expected_cell,
+        ) in cases:
+            with self.subTest(state_key=state_key):
+                snapshot = StatusProjector().project(
+                    state_for(
+                        state_key,
+                        pack_id=pack_id,
+                        pack_name=pack_name,
+                        focus=focus,
+                        semantic_cells=(pack_color,) * 6,
+                    ),
+                    now_monotonic_ns=NOW_NS,
+                    now_utc=NOW,
+                )
+                self.assertEqual(snapshot.notify, expected_notify)
+                if expected_cell is not None:
+                    self.assertEqual(
+                        snapshot.cells,
+                        ((expected_cell.r, expected_cell.g, expected_cell.b),) * 6,
+                    )
+                else:
+                    for cell in snapshot.cells:
+                        self.assertLessEqual(
+                            max(cell) - min(cell),
+                            24,
+                        )
+                payload = snapshot.to_json()
+                self.assertIn("cells", payload)
+                self.assertNotIn("motion", payload)
+                self.assertNotIn("tone", payload)
 
     def test_transition_id_is_stable_across_freshness_refreshes(self) -> None:
         projector = StatusProjector()

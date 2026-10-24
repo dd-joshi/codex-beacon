@@ -31,6 +31,28 @@
     error: "Error",
   };
 
+  // Keep in step with companion/display.py. The payload carries cells, not
+  // tone, so the page needs the same semantic mapping for its surface tint.
+  const stateTone = {
+    "agent.idle": "grey",
+    "agent.thinking": "blue",
+    "agent.working": "blue",
+    "agent.editing": "blue",
+    "agent.testing": "blue",
+    "agent.building": "blue",
+    "agent.waiting": "yellow",
+    "agent.input": "yellow",
+    "agent.success": "green",
+    "agent.review": "green",
+    "agent.failure": "red",
+    "focus.idle": "blue",
+    "focus.working": "blue",
+    "focus.paused": "amber",
+    "focus.completed": "green",
+    "focus.cancelled": "grey",
+    "focus.unknown": "grey",
+  };
+
   let latest = null;
   let receivedAt = 0;
   let baseAgeSeconds = null;
@@ -77,6 +99,17 @@
     setText(phaseLabel, phaseText[phase] || "Connecting");
   }
 
+  function toneFor(data) {
+    const phase = data && data.phase;
+    if (phase === "error") {
+      return "red";
+    }
+    if (phase === "offline" || phase === "stale") {
+      return "grey";
+    }
+    return stateTone[data && data.state_key] || "grey";
+  }
+
   function setAlertsUi() {
     alertsButton.textContent = alertsEnabled
       ? soundUnavailable
@@ -98,12 +131,14 @@
     while (cells.children.length < 6) {
       const dot = document.createElement("span");
       dot.className = "cell";
+      dot.style.setProperty("--i", String(cells.children.length));
       cells.appendChild(dot);
     }
     for (let index = 0; index < 6; index += 1) {
       const dot = cells.children[index];
       const value = Array.isArray(values) ? values[index] : null;
       if (!Array.isArray(value) || value.length < 3) {
+        dot.classList.remove("lit");
         dot.style.backgroundColor = "";
         dot.style.borderColor = "";
         dot.style.boxShadow = "";
@@ -112,7 +147,8 @@
       const red = clampColor(value[0]);
       const green = clampColor(value[1]);
       const blue = clampColor(value[2]);
-      const active = red + green + blue > 36;
+      const active = red + green + blue > 12;
+      dot.classList.toggle("lit", active);
       dot.style.backgroundColor = active
         ? "rgb(" + red + ", " + green + ", " + blue + ")"
         : "";
@@ -188,6 +224,11 @@
     offline = phase === "offline";
     app.dataset.attention =
       typeof data.attention === "string" ? data.attention : "normal";
+    const stateKey = typeof data.state_key === "string" ? data.state_key : "";
+    if (app.dataset.stateKey !== stateKey) {
+      app.dataset.stateKey = stateKey;
+    }
+    app.dataset.tone = toneFor(data);
     setPhase(phase);
     setText(packLabel, data.pack_name || "Codex Beacon");
     setText(headline, data.headline || "Waiting for status");
@@ -210,6 +251,7 @@
 
   function showOffline() {
     offline = true;
+    app.dataset.tone = "grey";
     setPhase("offline");
     offlineBanner.hidden = false;
     action.hidden = true;
@@ -225,6 +267,7 @@
   function showFatal(message) {
     stopped = true;
     offline = false;
+    app.dataset.tone = "red";
     setPhase("error");
     headline.textContent = "Status page unavailable";
     detail.textContent = message;

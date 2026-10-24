@@ -49,6 +49,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from codex_beacon.companion.display import display_cells_at
 from codex_beacon.companion.presentation import (
     CellLabelGroup,
     ConnectionPhase,
@@ -388,7 +389,7 @@ class LightStrip(QWidget):
 
             if active:
                 base = QColor(rgb.r, rgb.g, rgb.b)
-                if max(rgb.r, rgb.g, rgb.b) < 48:
+                if max(rgb.r, rgb.g, rgb.b) < 36:
                     base = base.lighter(260)
                 glow = QRadialGradient(
                     rect.center(),
@@ -1249,7 +1250,7 @@ class CompanionWindow(QMainWindow):
 
     def _render_lights(self) -> None:
         self.lights.set_presentation(
-            self.state.displayed_cells_at(time.monotonic_ns()),
+            display_cells_at(self.state, time.monotonic_ns()),
             self.state.cell_label_groups,
         )
 

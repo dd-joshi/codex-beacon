@@ -30,7 +30,9 @@ There is no ESP32, firmware, USB transport, mDNS, push service, remote approval,
 or remote control in this project. The phone page is read-only. Settings shows
 the software-only tabs; a legacy **Display** tab appears only when an optional
 `desktop/local-config.json` is present for protocol work, and the phone page
-never needs it. No hardware display is required.
+never needs it. The desktop LED strip is software-only too: it mirrors the
+phone's tone language and does not require hardware. No hardware display is
+required.
 
 ## Quick start
 
@@ -139,26 +141,46 @@ http://<PC-LAN-IP>:8765/s/<token>/
 
 ## What the phone shows
 
-- **Agent idle:** waiting for Codex; calm and quiet.
-- **Agent thinking, working, editing, testing, or building:** calm, quiet, no
-  chime.
-- **Needs approval or input:** urgent attention state and one alert.
-- **Checks passed or ready for review:** one finish chime and a short
-  celebration. A quick success-to-review sequence is deduplicated.
-- **Check failed:** urgent attention state and alert.
-- **Companion error:** a clear error state with a prompt to check the PC.
+- **Agent idle:** waiting for Codex; grey outline, calm and quiet.
+- **Agent thinking, working, editing, testing, or building:** blue, calm,
+  quiet, no chime.
+- **Needs approval or input:** yellow pulse, urgent attention state, and one
+  alert.
+- **Checks passed or ready for review:** green settle, one finish chime, and a
+  short celebration. A quick success-to-review sequence is deduplicated.
+- **Check failed:** red flash, urgent attention state, and alert.
+- **Companion error:** red error state with a prompt to check the PC.
 - **Focus ready, running, paused, or cancelled:** local timer status and
-  countdown, quiet. Focus completion gives one finish chime. The phone cannot
-  start, pause, or stop Focus.
-- **Stale or last known:** the page says so; it never pretends an old state is
-  live.
-- **Companion offline:** a clear offline banner and retry behavior.
+  countdown, quiet. Ready and running are blue; paused breathes amber;
+  cancelled does one brief dim grey pulse. Focus completion gives a green
+  settle and one finish chime. The phone cannot start, pause, or stop Focus.
+- **Stale or last known:** the page says so and dims the lights; it never
+  pretends an old state is live.
+- **Companion offline:** a clear offline banner, grey tone, and retry behavior.
 
-The page receives only application-level status text, state names, bounded
-timing data, and a suggested action. It does not receive prompts, commands, file
-paths, transcripts, tool output, the Codex credential, the Agent bearer token, or
-device credentials. It cannot start Focus, approve Codex actions, or send
-commands; the only phone controls are alerts and mute.
+### LED language
+
+The desktop strip and phone page use one palette. The pack still supplies the
+pattern; the display layer recolors it and applies the same motion language:
+
+- **Blue:** thinking, working, editing, testing, building, and Focus ready or
+  running. Thinking and Focus breathe; active Agent work moves.
+- **Green:** checks passed, ready for review, and Focus complete. These settle
+  and then hold quietly.
+- **Yellow:** needs approval or input. The outer lights pulse.
+- **Amber:** Focus paused. The progress lights breathe slowly.
+- **Red:** failed check or companion error. The lights flash or pulse.
+- **Grey:** idle, Focus cancelled, stale, or offline. Cancelled does one brief
+  dim pulse; idle stays quiet.
+
+The phone page respects the system reduced-motion setting. The desktop uses the
+pack's reduced-motion recipe.
+
+The page receives only application-level status text, state names, unified LED
+cells, bounded timing data, and a suggested action. It does not receive prompts,
+commands, file paths, transcripts, tool output, the Codex credential, the Agent
+bearer token, or device credentials. It cannot start Focus, approve Codex
+actions, or send commands; the only phone controls are alerts and mute.
 
 ## Troubleshooting
 

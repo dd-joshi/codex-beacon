@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
+from codex_beacon.companion.display import display_semantic_cells
 from codex_beacon.companion.presentation import FocusPhase, OutputPhase, PresentationState
 from codex_beacon.contracts import AttentionClass
 from codex_beacon.packs.registry import AGENT_PACK_ID, FOCUS_PACK_ID
@@ -162,7 +163,9 @@ class StatusProjector:
                 state.remaining_seconds if state.is_focus else None
             ),
             is_focus=state.is_focus,
-            cells=tuple((cell.r, cell.g, cell.b) for cell in state.semantic_cells),
+            cells=tuple(
+                (cell.r, cell.g, cell.b) for cell in display_semantic_cells(state)
+            ),
         )
 
 
