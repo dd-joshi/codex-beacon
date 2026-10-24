@@ -21,7 +21,10 @@ The goal is attention routing, not another dashboard:
   one-time **Enable alerts** tap before sound is allowed.
 
 There is no ESP32, firmware, USB transport, mDNS, push service, remote approval,
-or remote control in this project. The phone page is read-only.
+or remote control in this project. The phone page is read-only. Settings shows
+the software-only tabs; a legacy **Display** tab appears only when an optional
+`desktop/local-config.json` is present for protocol work, and the phone page
+never needs it.
 
 ## Quick start
 
@@ -41,7 +44,9 @@ Start the companion:
 
 The app starts directly in Codex status mode. Closing the window hides it to the
 system tray so the phone page stays available. Use the tray menu to reopen it or
-quit. `start-codex-beacon.cmd` is a double-click launcher.
+quit. `start-codex-beacon.cmd` is a double-click launcher. Only one copy can run
+at a time; launching a second copy shows a message and leaves the existing
+instance in charge of the phone page.
 
 The inherited Focus timer is still available for development and can be started
 with:

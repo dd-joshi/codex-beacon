@@ -11,7 +11,7 @@ from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QRectF, QSize, Qt, QTimer, QUrl
+from PySide6.QtCore import QLockFile, QRectF, QSize, QStandardPaths, Qt, QTimer, QUrl
 from PySide6.QtGui import (
     QColor,
     QCloseEvent,
@@ -429,6 +429,8 @@ class SettingsDialog(QDialog):
         tabs.addTab(phone, "Phone")
 
         device = QWidget()
+        # Keep the hidden tab alive when software-only mode does not add it.
+        self._device_tab = device
         device_layout = QVBoxLayout(device)
         device_layout.setContentsMargins(16, 16, 16, 16)
         device_form = QFormLayout()
@@ -455,7 +457,8 @@ class SettingsDialog(QDialog):
         connection_buttons.addWidget(self.status_button)
         device_layout.addLayout(connection_buttons)
         device_layout.addStretch(1)
-        tabs.addTab(device, "Device")
+        if owner.has_device_config:
+            tabs.addTab(device, "Display")
 
         diagnostics = QWidget()
         diagnostics_layout = QVBoxLayout(diagnostics)
@@ -727,13 +730,22 @@ class CompanionWindow(QMainWindow):
         self.runtime.activate_pack(pack_id)
 
     def _load_config(self, endpoint_override: str | None) -> None:
+        if not self._config_path.is_file():
+            self._log(
+                "No hardware display configured; using the phone status page."
+            )
+            return
         try:
             self._config = load_local_device_config(self._config_path)
-        except ProtocolClientError as exc:
-            self._log(str(exc))
+        except (OSError, ProtocolClientError) as exc:
+            self._log(f"Hardware display configuration is invalid: {exc}")
             return
         if endpoint_override is None:
             self.endpoint = self._config.endpoint
+
+    @property
+    def has_device_config(self) -> bool:
+        return self._config is not None
 
     @property
     def phone_config(self) -> PhoneStatusConfig | None:
@@ -841,10 +853,12 @@ class CompanionWindow(QMainWindow):
             self._phone_config = None
             self._status_server_error = f"Phone status settings unavailable: {exc}"
             self._log(self._status_server_error)
+            self._refresh_status_chip()
             return
         self._phone_config = config
         if not config.enabled:
             self._status_server_error = None
+            self._refresh_status_chip()
             return
         server = StatusServer(token=config.token, port=config.port)
         try:
@@ -854,11 +868,13 @@ class CompanionWindow(QMainWindow):
                 f"Could not start the phone page on port {config.port}: {exc}"
             )
             self._log(self._status_server_error)
+            self._refresh_status_chip()
             return
         self._status_server = server
         self._status_server_error = None
         self._publish_status()
         self._log(f"Phone status page ready on port {server.port}.")
+        self._refresh_status_chip()
 
     def _stop_phone_status(self) -> None:
         if self._status_server is not None:
@@ -1016,19 +1032,7 @@ class CompanionWindow(QMainWindow):
         self.primary.setVisible(self.state.is_focus)
         self.stop.setVisible(self.state.can_stop)
 
-        dot_color = {
-            ConnectionPhase.CONNECTED: "#20b26b",
-            ConnectionPhase.CONNECTING: "#d18a12",
-            ConnectionPhase.RECONNECTING: "#d18a12",
-            ConnectionPhase.ATTENTION: "#c4483e",
-            ConnectionPhase.DISCONNECTED: "#969aa5",
-        }[self.state.connection]
-        self.status_chip.setText("●")
-        self.status_chip.setStyleSheet(f"color: {dot_color};")
-        self.status_chip.setToolTip(f"Codex Beacon {self.state.connection_label}")
-        self.status_chip.setAccessibleName(
-            f"Codex Beacon {self.state.connection_label}. Open device settings"
-        )
+        self._refresh_status_chip()
 
         if self.state.notice:
             self.notice.setText(self.state.notice)
@@ -1038,6 +1042,31 @@ class CompanionWindow(QMainWindow):
 
         if self._settings is not None:
             self._settings.refresh()
+
+    def _status_chip_presentation(self) -> tuple[str, str]:
+        if self._config is None:
+            if self._status_server is not None:
+                return "Phone status page ready", "#20b26b"
+            if self._status_server_error:
+                return "Phone status page needs attention", "#c4483e"
+            return "Phone status page not running", "#969aa5"
+        dot_color = {
+            ConnectionPhase.CONNECTED: "#20b26b",
+            ConnectionPhase.CONNECTING: "#d18a12",
+            ConnectionPhase.RECONNECTING: "#d18a12",
+            ConnectionPhase.ATTENTION: "#c4483e",
+            ConnectionPhase.DISCONNECTED: "#969aa5",
+        }[self.state.connection]
+        return self.state.connection_label, dot_color
+
+    def _refresh_status_chip(self) -> None:
+        status_label, dot_color = self._status_chip_presentation()
+        self.status_chip.setText("●")
+        self.status_chip.setStyleSheet(f"color: {dot_color};")
+        self.status_chip.setToolTip(f"Codex Beacon {status_label}")
+        self.status_chip.setAccessibleName(
+            f"Codex Beacon {status_label}. Open settings"
+        )
 
     def _render_lights(self) -> None:
         self.lights.set_presentation(
@@ -1113,12 +1142,29 @@ def _argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _instance_lock() -> QLockFile:
+    location = QStandardPaths.writableLocation(
+        QStandardPaths.StandardLocation.TempLocation
+    )
+    lock = QLockFile(str(Path(location or ".") / "codex-beacon-companion.lock"))
+    lock.setStaleLockTime(10_000)
+    return lock
+
+
 def main() -> None:
     arguments = _argument_parser().parse_args()
     application = QApplication.instance() or QApplication([])
     application.setApplicationName("Codex Beacon")
     application.setOrganizationName("Codex Beacon")
     application.setQuitOnLastWindowClosed(False)
+    instance_lock = _instance_lock()
+    if not instance_lock.tryLock(0):
+        QMessageBox.information(
+            None,
+            "Codex Beacon",
+            "Codex Beacon is already running. Use the tray icon to open it.",
+        )
+        return
     window = CompanionWindow(
         config_path=arguments.config.resolve(),
         endpoint_override=arguments.endpoint,
