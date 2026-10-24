@@ -171,6 +171,14 @@ def _phase(state: PresentationState, now_ns: int) -> StatusPhase:
         return StatusPhase.ERROR
     if state.output_accepted_monotonic_ns == 0 and state.output_sequence is None:
         return StatusPhase.OFFLINE
+    # The phone page is a software-only companion. A device connection is
+    # optional, so a fresh host proposal is live even when OutputPhase is OFF
+    # because no physical display accepted the scene.
+    if state.output_accepted_monotonic_ns > 0:
+        expires = state.output_expires_monotonic_ns
+        if expires is None or now_ns < expires:
+            return StatusPhase.LIVE
+        return _expired_phase(state)
     if state.output in {OutputPhase.PENDING, OutputPhase.ACTIVE}:
         expires = state.output_expires_monotonic_ns
         if expires is not None and now_ns >= expires:

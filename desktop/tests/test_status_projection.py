@@ -131,6 +131,35 @@ class StatusProjectionTests(unittest.TestCase):
         self.assertEqual(snapshot.phase, StatusPhase.STALE)
         self.assertEqual(snapshot.notify, NotificationIntent.NONE)
 
+    def test_fresh_proposal_is_live_without_a_physical_display(self) -> None:
+        projector = StatusProjector()
+        snapshot = projector.project(
+            state_for(
+                "agent.thinking",
+                headline="Thinking",
+                output=OutputPhase.OFF,
+            ),
+            now_monotonic_ns=NOW_NS,
+            now_utc=NOW,
+        )
+        self.assertEqual(snapshot.phase, StatusPhase.LIVE)
+        self.assertEqual(snapshot.headline, "Thinking")
+        self.assertEqual(snapshot.notify, NotificationIntent.NONE)
+
+    def test_expired_proposal_without_a_display_becomes_stale(self) -> None:
+        projector = StatusProjector()
+        snapshot = projector.project(
+            state_for(
+                "agent.thinking",
+                output=OutputPhase.OFF,
+                expires_ns=NOW_NS + 1_000_000_000,
+            ),
+            now_monotonic_ns=NOW_NS + 2_000_000_000,
+            now_utc=NOW,
+        )
+        self.assertEqual(snapshot.phase, StatusPhase.STALE)
+        self.assertEqual(snapshot.notify, NotificationIntent.NONE)
+
     def test_expired_success_is_last_known_not_a_fake_live_state(self) -> None:
         projector = StatusProjector()
         snapshot = projector.project(
