@@ -4,6 +4,10 @@ Codex Beacon is a software-only phone status companion for Codex. It runs a
 small Windows tray app, serves a read-only status page over the local Wi-Fi, and
 lets an old phone chime or vibrate when Codex needs attention or finishes a turn.
 
+The default mode is **Agent**, driven by Codex lifecycle hooks. **Focus** is an
+optional built-in local timer. The phone page is read-only for Codex and Focus;
+its only controls are **Enable alerts** and **Mute**.
+
 The goal is attention routing, not another dashboard:
 
 - quiet while Codex is working;
@@ -16,7 +20,9 @@ The goal is attention routing, not another dashboard:
 - Windows 10 or 11.
 - Python 3.10 or newer.
 - Codex CLI 0.149 or newer for lifecycle hooks.
-- An old phone on the same Wi-Fi network as the PC.
+- An old phone on the same Wi-Fi network as the PC, not a guest network with
+  client isolation.
+- Inbound TCP `8765` allowed from the local subnet in Windows Firewall.
 - The phone page open and awake for the chime or vibration. Browsers require a
   one-time **Enable alerts** tap before sound is allowed.
 
@@ -24,7 +30,7 @@ There is no ESP32, firmware, USB transport, mDNS, push service, remote approval,
 or remote control in this project. The phone page is read-only. Settings shows
 the software-only tabs; a legacy **Display** tab appears only when an optional
 `desktop/local-config.json` is present for protocol work, and the phone page
-never needs it.
+never needs it. No hardware display is required.
 
 ## Quick start
 
@@ -42,14 +48,27 @@ Start the companion:
 .\.venv\Scripts\codex-beacon.exe
 ```
 
-The app starts directly in Codex status mode. Closing the window hides it to the
-system tray so the phone page stays available. Use the tray menu to reopen it or
-quit. `start-codex-beacon.cmd` is a double-click launcher. Only one copy can run
-at a time; launching a second copy shows a message and leaves the existing
-instance in charge of the phone page.
+The app starts in **Agent** mode. Use the mode selector next to the Codex Beacon
+title to switch between Agent and Focus. Closing the window hides it to the
+system tray when the tray is available, so the phone page stays up. Use the tray
+menu to reopen it or quit. `start-codex-beacon.cmd` is a double-click launcher.
+Only one copy can run at a time; launching a second copy shows a message and
+leaves the existing instance in charge of the phone page.
 
-The inherited Focus timer is still available for development and can be started
-with:
+See [Modes](#modes) for Agent and Focus behavior.
+
+## Modes
+
+- **Agent (default):** receives the five Codex lifecycle hooks and shows idle,
+  thinking, working, editing, testing, building, needs approval, needs input,
+  checks passed, check failed, and ready for review. Agent status requires the
+  hooks to be trusted.
+- **Focus (optional):** a local countdown with start, pause, resume, and stop on
+  the PC. The default duration is 25 minutes; change it to 1–240 minutes in
+  **Settings > General**. Focus needs no Codex hooks, and the phone cannot
+  control it.
+
+To start directly in Focus instead of Agent:
 
 ```powershell
 .\.venv\Scripts\codex-beacon.exe --focus
@@ -57,7 +76,9 @@ with:
 
 ## Codex setup
 
-Codex Beacon needs five user-level Codex lifecycle hooks. Run the setup wrapper:
+Codex Beacon needs five user-level Codex lifecycle hooks: `UserPromptSubmit`,
+`PreToolUse`, `PermissionRequest`, `PostToolUse`, and `Stop`. Run the setup
+wrapper:
 
 ```powershell
 .\setup-codex-beacon.cmd
@@ -84,12 +105,28 @@ Review the five `User Config` Codex Beacon hooks and mark them **Trusted**.
 
 1. Start Codex Beacon and open **Settings > Phone**.
 2. Enable the phone status page and click **Apply phone settings**.
-3. Allow Codex Beacon through Windows Firewall for **Private** networks.
+3. Allow inbound TCP `8765` from the local subnet in Windows Firewall. A
+   Private-only rule will not work when Windows marks the Wi-Fi as **Public**.
 4. Put the old phone on the same Wi-Fi, not a guest network with client
    isolation, and open the URL shown in Settings.
 5. Add the page to the phone's home screen, keep the display awake, and tap
    **Enable alerts** once.
 6. Keep the PC awake while you want live status.
+
+The page listens on TCP `8765` and only needs access from `LocalSubnet`, not from
+the internet. If Windows prompts, allow it. If you manage rules manually, this
+elevated PowerShell command adds the working scope:
+
+```powershell
+New-NetFirewallRule -DisplayName "Codex Beacon phone page (TCP 8765)" `
+  -Direction Inbound -Protocol TCP -LocalPort 8765 `
+  -RemoteAddress LocalSubnet -Action Allow
+```
+
+The dot next to the Codex Beacon title shows phone-page readiness in
+software-only mode: green means the local page is serving, gray means it is
+disabled or not running, and red means it needs attention. It is not a hardware
+connection indicator.
 
 The URL contains a local access token. Treat it like a password. **Rotate token**
 invalidates the old bookmark and gives the phone a new URL.
@@ -102,10 +139,17 @@ http://<PC-LAN-IP>:8765/s/<token>/
 
 ## What the phone shows
 
-- **Working / thinking:** calm, quiet, no chime.
-- **Waiting for approval or input:** urgent attention state and one alert.
-- **Turn finished:** one finish chime and a short celebration.
-- **Failure or local error:** urgent attention state.
+- **Agent idle:** waiting for Codex; calm and quiet.
+- **Agent thinking, working, editing, testing, or building:** calm, quiet, no
+  chime.
+- **Needs approval or input:** urgent attention state and one alert.
+- **Checks passed or ready for review:** one finish chime and a short
+  celebration. A quick success-to-review sequence is deduplicated.
+- **Check failed:** urgent attention state and alert.
+- **Companion error:** a clear error state with a prompt to check the PC.
+- **Focus ready, running, paused, or cancelled:** local timer status and
+  countdown, quiet. Focus completion gives one finish chime. The phone cannot
+  start, pause, or stop Focus.
 - **Stale or last known:** the page says so; it never pretends an old state is
   live.
 - **Companion offline:** a clear offline banner and retry behavior.
@@ -113,13 +157,21 @@ http://<PC-LAN-IP>:8765/s/<token>/
 The page receives only application-level status text, state names, bounded
 timing data, and a suggested action. It does not receive prompts, commands, file
 paths, transcripts, tool output, the Codex credential, the Agent bearer token, or
-device credentials.
+device credentials. It cannot start Focus, approve Codex actions, or send
+commands; the only phone controls are alerts and mute.
 
 ## Troubleshooting
 
 - **Page does not load:** confirm both devices are on the same Wi-Fi, check the
-  private-network firewall rule, and make sure the URL does not contain
-  `127.0.0.1`. A VPN can also publish the wrong adapter address.
+  LocalSubnet firewall rule for TCP `8765`, and make sure the URL does not
+  contain `127.0.0.1`. A VPN can also publish the wrong adapter address.
+- **Green dot but no phone page:** the dot means the PC is serving the page, not
+  that a phone is connected. Check the URL, firewall, and Wi-Fi isolation.
+- **Focus does not appear on the phone:** select Focus from the mode selector on
+  the PC. The phone page cannot switch modes, and Focus does not need Codex
+  hooks.
+- **No Display tab:** normal for software-only use. It appears only when
+  `desktop/local-config.json` exists for protocol work.
 - **Page says last known or stale:** the companion stopped receiving fresh
   status. Check that Codex Beacon and Codex are running.
 - **No chime:** tap **Enable alerts** on the phone, check media volume, and make
@@ -137,9 +189,10 @@ device credentials.
 
 | Path | Purpose |
 |---|---|
-| `desktop/` | Windows companion, pack host, Agent pack, and tests |
+| `desktop/` | Windows companion, pack host, Agent/Focus packs, and tests |
 | `desktop/src/codex_beacon/companion/` | Tray UI, status projection, HTTP server, and phone page assets |
 | `desktop/src/codex_beacon/packs/agent/` | Codex hook receiver and Agent state pack |
+| `desktop/src/codex_beacon/packs/focus/` | Optional local Focus timer pack |
 | `desktop/tests/` | Contract, security, status, and UI-asset tests |
 | `.codex/hooks/` | Repository-relative Codex lifecycle hook sender |
 | `protocol/` | Frozen compatibility schemas and fixtures used by tests |
@@ -159,8 +212,12 @@ kept unchanged because the wire format is frozen; no firmware is included.
 
 - The phone server uses a separate random access token, distinct from the Codex
   and device credentials.
-- The page is bound to the local network and intended for a trusted home Wi-Fi.
-- The page cannot approve Codex actions or send commands to Codex.
+- The page listens on TCP `8765` on local interfaces and is intended for a
+  trusted home Wi-Fi. Windows Firewall should limit access to `LocalSubnet`.
+- The page uses HTTP with a bearer token in the URL. Treat the URL as a password
+  and do not expose the port to the internet.
+- The page cannot approve Codex actions, control Focus, or send commands to
+  Codex.
 - Generated secrets, local device configuration, hook configuration, and logs
   are ignored by `.gitignore`.
 - Global Codex hooks are user-level configuration outside this repository. The
@@ -169,9 +226,12 @@ kept unchanged because the wire format is frozen; no firmware is included.
 ## Status
 
 The phone page, authenticated server, freshness handling, status projection,
-tray lifecycle, token rotation, and Codex hook setup are implemented and covered
-by the desktop test suite. Manual acceptance still requires a real Codex turn
-and the old phone on the same Wi-Fi.
+tray lifecycle, single-instance guard, token rotation, Focus mode, and Codex hook
+setup are implemented and covered by the desktop test suite. The authenticated
+phone page and the Focus countdown/return-to-Agent flow have been manually
+verified over the LAN. Real Codex lifecycle acceptance and physical phone
+chime/vibration still need confirmation with the five hooks trusted and the page
+open.
 
 ## License
 

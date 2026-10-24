@@ -366,8 +366,9 @@ class SettingsDialog(QDialog):
         phone_layout.addWidget(phone_title)
         phone_copy_note = QLabel(
             "Keep this page open on an old phone on the same Wi-Fi. It shows "
-            "Codex status and can chime or vibrate when Codex needs attention. "
-            "It is read-only: the phone can never approve or control Codex."
+            "Codex or Focus status and can chime or vibrate when something needs "
+            "attention or finishes. It is read-only: the phone can never approve "
+            "or control Codex."
         )
         phone_copy_note.setWordWrap(True)
         phone_layout.addWidget(phone_copy_note)
@@ -415,9 +416,10 @@ class SettingsDialog(QDialog):
         phone_layout.addLayout(phone_buttons)
 
         phone_hint = QLabel(
-            "Phone and PC must be on the same Wi-Fi. On first use, allow Codex Beacon "
-            "through Windows Firewall for Private networks. Guest Wi-Fi or "
-            "client isolation will block the page."
+            "Phone and PC must be on the same Wi-Fi. Allow inbound TCP 8765 from "
+            "the local subnet in Windows Firewall; a Private-only rule will not "
+            "work on a network marked Public. Guest Wi-Fi or client isolation "
+            "will block the page."
         )
         phone_hint.setWordWrap(True)
         phone_hint.setStyleSheet("color: #686c77;")
@@ -649,7 +651,7 @@ class CompanionWindow(QMainWindow):
         self.status_chip.setObjectName("StatusDot")
         self.status_chip.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         self.status_chip.clicked.connect(self.open_settings)
-        self.status_chip.setAccessibleName("Device connection status")
+        self.status_chip.setAccessibleName("Codex Beacon status")
         header.addWidget(self.status_chip)
 
         settings = QToolButton()
@@ -1136,7 +1138,7 @@ def _argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--focus",
         action="store_true",
-        help="Start in the inherited Focus mode instead of Codex status mode",
+        help="Start in the optional Focus timer mode instead of Agent status mode",
     )
     parser.add_argument("--agent", action="store_true", help=argparse.SUPPRESS)
     return parser
