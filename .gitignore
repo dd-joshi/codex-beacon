@@ -27,6 +27,10 @@ desktop/phone-status.json
 desktop/phone-status.log
 desktop/*.bak
 
+# Generated per-machine project hook command (contains absolute local paths)
+.codex/hooks.json
+.codex/hooks.json.codex-beacon.bak
+
 # Removed copied material; keep accidental re-adds out of the public repo
 /firmware/
 /hardware/

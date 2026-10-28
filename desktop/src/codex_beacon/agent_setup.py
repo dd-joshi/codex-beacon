@@ -1,4 +1,4 @@
-"""Idempotent user-level Codex hook setup for Codex Beacon."""
+"""Idempotent Codex hook setup for Codex Beacon."""
 
 from __future__ import annotations
 
@@ -13,12 +13,10 @@ from typing import Mapping
 
 HOOK_EVENTS = (
     "UserPromptSubmit",
-    "PreToolUse",
     "PermissionRequest",
-    "PostToolUse",
     "Stop",
 )
-CODEX_BEACON_COMMAND_MARKERS = ("CODEX_BEACON_CONFIG", "codex_beacon_hook.py")
+CODEX_BEACON_SENDER_MARKER = "codex_beacon_hook.py"
 BACKUP_SUFFIX = ".codex-beacon.bak"
 
 
@@ -32,7 +30,7 @@ def default_codex_home() -> Path:
 
 
 def build_codex_beacon_handler(repository: Path) -> dict[str, object]:
-    """Build one portable-to-this-install Codex hook handler."""
+    """Build one direct, environment-independent Codex hook handler."""
 
     repository = repository.resolve()
     python_candidates = (
@@ -44,40 +42,36 @@ def build_codex_beacon_handler(repository: Path) -> dict[str, object]:
         python_candidates[0],
     )
     sender = repository / ".codex" / "hooks" / "codex_beacon_hook.py"
-    config = repository / "desktop" / "agent-hook.json"
-    missing = [path for path in (python, sender) if not path.is_file()]
+    windows_launcher = repository / "desktop" / "codex-beacon-hook.cmd"
+    missing = [path for path in (python, sender, windows_launcher) if not path.is_file()]
     if missing:
         rendered = ", ".join(str(path) for path in missing)
         raise FileNotFoundError(f"Codex Beacon setup files are missing: {rendered}")
 
-    command = (
-        "powershell.exe -NoProfile -Command \""
-        f"$env:CODEX_BEACON_CONFIG = '{_powershell_literal(config)}'; "
-        f"& '{_powershell_literal(python)}' '{_powershell_literal(sender)}'\""
-    )
+    # The entry point supplies its config path directly. Use a small batch
+    # launcher because Codex's Windows shell adds another parsing layer around
+    # commandWindows. An explicit nested cmd invocation preserves a quoted
+    # launcher path even when this repository is stored below a path with spaces.
+    command = f'"{python}" "{sender}"'
     return {
         "type": "command",
         "command": command,
-        "commandWindows": command,
+        "commandWindows": f'cmd.exe /d /s /c call "{windows_launcher}"',
         "async": False,
         "timeout": 3,
     }
 
 
-def install_global_hooks(
-    repository: Path,
-    *,
-    codex_home: Path | None = None,
-) -> tuple[Path, bool]:
-    """Merge Codex Beacon hooks into the user's Codex config without replacing peers."""
+def install_project_hooks(repository: Path) -> tuple[Path, bool]:
+    """Merge Codex Beacon hooks into this repository without replacing peers."""
 
-    home = (codex_home or default_codex_home()).expanduser().resolve()
-    path = home / "hooks.json"
-    document, had_bom = _load_hook_document(path, "Codex hooks")
+    repository = repository.resolve()
+    path = repository / ".codex" / "hooks.json"
+    document, had_bom = _load_hook_document(path, "project Codex hooks")
     if not document:
         document = {
             "description": (
-                "User-level lifecycle hooks, including privacy-safe Codex Beacon status."
+                "Project-local lifecycle hooks for privacy-safe Codex Beacon status."
             ),
             "hooks": {},
         }
@@ -85,9 +79,10 @@ def install_global_hooks(
     if not isinstance(hooks, dict):
         raise ValueError(f"Existing Codex hooks field must contain an object: {path}")
 
-    handler = build_codex_beacon_handler(repository)
-    for event in HOOK_EVENTS:
-        raw_groups = hooks.get(event, [])
+    # First remove any prior Beacon handlers from every event.  This makes an
+    # existing five-event installation migrate down to the lightweight profile
+    # instead of leaving PreToolUse and PostToolUse running in parallel.
+    for event, raw_groups in list(hooks.items()):
         if not isinstance(raw_groups, list):
             raise ValueError(f"Codex hook event {event!r} must contain a list")
         groups: list[object] = []
@@ -100,10 +95,69 @@ def install_global_hooks(
                 groups.append(raw_group)
                 continue
             retained = [
-                item for item in raw_handlers if not _is_codex_beacon_handler(item)
+                item
+                for item in raw_handlers
+                if not _is_codex_beacon_handler(item, repository=repository)
             ]
             if retained:
                 groups.append(raw_group | {"hooks": retained})
+        hooks[event] = groups
+
+    handler = build_codex_beacon_handler(repository)
+    for event in HOOK_EVENTS:
+        groups = list(hooks.get(event, []))
+        groups.append({"hooks": [handler]})
+        hooks[event] = groups
+
+    return _write_hook_document(path, document, had_bom)
+
+
+def install_global_hooks(
+    repository: Path,
+    *,
+    codex_home: Path | None = None,
+) -> tuple[Path, bool]:
+    """Merge lightweight Beacon hooks into the user's Codex configuration."""
+
+    repository = repository.resolve()
+    home = (codex_home or default_codex_home()).expanduser().resolve()
+    path = home / "hooks.json"
+    document, had_bom = _load_hook_document(path, "user-level Codex hooks")
+    if not document:
+        document = {
+            "description": (
+                "User-level lifecycle hooks for privacy-safe Codex Beacon status."
+            ),
+            "hooks": {},
+        }
+    hooks = document.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise ValueError(f"Existing Codex hooks field must contain an object: {path}")
+
+    for event, raw_groups in list(hooks.items()):
+        if not isinstance(raw_groups, list):
+            raise ValueError(f"Codex hook event {event!r} must contain a list")
+        groups: list[object] = []
+        for raw_group in raw_groups:
+            if not isinstance(raw_group, dict):
+                groups.append(raw_group)
+                continue
+            raw_handlers = raw_group.get("hooks")
+            if not isinstance(raw_handlers, list):
+                groups.append(raw_group)
+                continue
+            retained = [
+                item
+                for item in raw_handlers
+                if not _is_codex_beacon_handler(item, repository=repository)
+            ]
+            if retained:
+                groups.append(raw_group | {"hooks": retained})
+        hooks[event] = groups
+
+    handler = build_codex_beacon_handler(repository)
+    for event in HOOK_EVENTS:
+        groups = list(hooks.get(event, []))
         groups.append({"hooks": [handler]})
         hooks[event] = groups
 
@@ -137,8 +191,66 @@ def uninstall_codex_beacon_hooks(
             if not isinstance(raw_handlers, list):
                 groups.append(raw_group)
                 continue
+            retained = [item for item in raw_handlers if not _is_codex_beacon_handler(item)]
+            if len(retained) != len(raw_handlers):
+                changed = True
+            if retained:
+                groups.append(raw_group | {"hooks": retained})
+        hooks[event] = groups
+    if not changed:
+        return []
+    _write_hook_document(path, document, had_bom)
+    return [path]
+
+
+def uninstall_legacy_global_hooks(
+    repository: Path,
+    *,
+    codex_home: Path | None = None,
+) -> list[Path]:
+    """Remove only global Beacon handlers for ``repository``."""
+
+    home = (codex_home or default_codex_home()).expanduser().resolve()
+    path = home / "hooks.json"
+    return _uninstall_repository_handlers(path, "Codex hooks", repository)
+
+
+def uninstall_project_hooks(repository: Path) -> list[Path]:
+    """Remove this repository's Beacon handlers from its local hooks file."""
+
+    repository = repository.resolve()
+    path = repository / ".codex" / "hooks.json"
+    return _uninstall_repository_handlers(path, "project Codex hooks", repository)
+
+
+def _uninstall_repository_handlers(
+    path: Path, label: str, repository: Path
+) -> list[Path]:
+    """Remove matching Beacon handlers while preserving all unrelated hooks."""
+
+    if not path.exists():
+        return []
+    document, had_bom = _load_hook_document(path, label)
+    hooks = document.get("hooks")
+    if not isinstance(hooks, dict):
+        raise ValueError(f"Existing {label} field must contain an object: {path}")
+    changed = False
+    for event, raw_groups in list(hooks.items()):
+        if not isinstance(raw_groups, list):
+            continue
+        groups: list[object] = []
+        for raw_group in raw_groups:
+            if not isinstance(raw_group, dict):
+                groups.append(raw_group)
+                continue
+            raw_handlers = raw_group.get("hooks")
+            if not isinstance(raw_handlers, list):
+                groups.append(raw_group)
+                continue
             retained = [
-                item for item in raw_handlers if not _is_codex_beacon_handler(item)
+                item
+                for item in raw_handlers
+                if not _is_codex_beacon_handler(item, repository=repository)
             ]
             if len(retained) != len(raw_handlers):
                 changed = True
@@ -151,20 +263,23 @@ def uninstall_codex_beacon_hooks(
     return [path]
 
 
-def _is_codex_beacon_handler(value: object) -> bool:
+def _is_codex_beacon_handler(value: object, *, repository: Path | None = None) -> bool:
     if not isinstance(value, Mapping):
         return False
+    sender = (
+        str((repository.resolve() / ".codex" / "hooks" / CODEX_BEACON_SENDER_MARKER))
+        if repository is not None
+        else None
+    )
     commands = (value.get("command"), value.get("commandWindows"))
     for command in commands:
         if not isinstance(command, str):
             continue
-        if all(marker in command for marker in CODEX_BEACON_COMMAND_MARKERS):
+        if CODEX_BEACON_SENDER_MARKER not in command:
+            continue
+        if sender is None or sender.casefold() in command.casefold():
             return True
     return False
-
-
-def _powershell_literal(path: Path) -> str:
-    return str(path.resolve()).replace("'", "''")
 
 
 def _load_hook_document(path: Path, label: str) -> tuple[dict[str, object], bool]:
@@ -218,23 +333,39 @@ def _atomic_write(path: Path, value: str) -> None:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Install privacy-safe Codex Beacon hooks for this Windows user"
+        description="Install privacy-safe Codex Beacon hooks"
     )
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--codex-home", type=Path)
+    parser.add_argument(
+        "--scope",
+        choices=("user", "project"),
+        default="user",
+        help="Install for every local Codex project (user) or this repository only (project)",
+    )
     return parser
 
 
 def main() -> None:
     arguments = _parser().parse_args()
-    hooks_path, hooks_changed = install_global_hooks(
-        arguments.repository,
-        codex_home=arguments.codex_home,
-    )
+    if arguments.scope == "user":
+        hooks_path, hooks_changed = install_global_hooks(
+            arguments.repository, codex_home=arguments.codex_home
+        )
+        removed_paths = uninstall_project_hooks(arguments.repository)
+        scope_label = "User"
+    else:
+        hooks_path, hooks_changed = install_project_hooks(arguments.repository)
+        removed_paths = uninstall_legacy_global_hooks(
+            arguments.repository, codex_home=arguments.codex_home
+        )
+        scope_label = "Project"
     print(
-        f"Codex hooks: {hooks_path} "
+        f"{scope_label} Codex hooks: {hooks_path} "
         f"({'updated' if hooks_changed else 'current'})"
     )
+    if removed_paths:
+        print(f"Removed duplicate Codex Beacon hooks: {removed_paths[0]}")
 
 
 if __name__ == "__main__":
@@ -243,11 +374,14 @@ if __name__ == "__main__":
 
 __all__ = [
     "BACKUP_SUFFIX",
-    "CODEX_BEACON_COMMAND_MARKERS",
+    "CODEX_BEACON_SENDER_MARKER",
     "HOOK_EVENTS",
     "build_codex_beacon_handler",
     "default_codex_home",
     "install_global_hooks",
+    "install_project_hooks",
     "main",
+    "uninstall_legacy_global_hooks",
     "uninstall_codex_beacon_hooks",
+    "uninstall_project_hooks",
 ]

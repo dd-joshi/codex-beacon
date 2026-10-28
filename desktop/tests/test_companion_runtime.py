@@ -75,6 +75,8 @@ class CompanionRuntimeTests(unittest.TestCase):
                     [
                         sys.executable,
                         str(repository / ".codex" / "hooks" / "codex_beacon_hook.py"),
+                        "--config",
+                        str(config_path),
                     ],
                     input=json.dumps(
                         {
@@ -89,7 +91,7 @@ class CompanionRuntimeTests(unittest.TestCase):
                     text=True,
                     capture_output=True,
                     timeout=3,
-                    env=os.environ | {"CODEX_BEACON_CONFIG": str(config_path)},
+                    env=os.environ,
                     check=False,
                 )
                 self.assertEqual(completed.returncode, 0, completed.stderr)

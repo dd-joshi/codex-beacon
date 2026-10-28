@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [switch]$SkipCodexUpdate,
-    [switch]$NoLaunch
+    [switch]$NoLaunch,
+    [ValidateSet('user', 'project')][string]$HookScope = 'user'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -175,10 +176,11 @@ if ($null -eq $codex) {
 }
 Write-Host "      $($codex.Display)"
 
-Write-Host '[4/5] Registering privacy-safe Codex hooks for every Codex project...'
+Write-Host "[4/5] Registering privacy-safe Codex hooks ($HookScope scope)..."
 Invoke-Checked -FilePath $venvPython -Arguments @(
     '-m', 'codex_beacon.agent_setup',
-    '--repository', $repository
+    '--repository', $repository,
+    '--scope', $HookScope
 )
 
 Write-Host '[5/5] Finalizing...'
@@ -194,8 +196,7 @@ else {
 
 Write-Host ''
 Write-Host 'One security confirmation remains:' -ForegroundColor Yellow
-Write-Host '  1. Open a terminal in any project and run: codex'
-Write-Host '  2. Inside Codex, run: /hooks'
-Write-Host '  3. Review the five User Config Codex Beacon hooks and verify they show Trusted.'
+Write-Host '  1. Open Codex in any local project and run: /hooks'
+Write-Host '  2. Review the three User Config Codex Beacon hooks and verify they show Trusted.'
 Write-Host ''
 Write-Host 'After that, double-click start-codex-beacon.cmd whenever you want Codex status mode.'

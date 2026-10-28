@@ -32,6 +32,18 @@ BUILD_PATTERN = re.compile(
     r"python(?:\.exe)?\s+-m\s+build|pio\s+run|platformio\s+run|msbuild|ninja|make)(?:\s|$)",
     re.IGNORECASE,
 )
+# Wrapper scripts (e.g. build_hil.ps1, scripts/run-build.sh) that invoke a real
+# build/test tool internally. Codex only reports the outer command, so without
+# this the inner build/test is invisible and the call is bounded by the short
+# ordinary-task stale budget instead of the long build/test one.
+TEST_SCRIPT_PATTERN = re.compile(
+    r"(?:^|[;&|\s\\/])[\w.\-]*test[\w.\-]*\.(?:ps1|psm1|sh|bash|zsh|bat|cmd|py)(?:\s|$)",
+    re.IGNORECASE,
+)
+BUILD_SCRIPT_PATTERN = re.compile(
+    r"(?:^|[;&|\s\\/])[\w.\-]*build[\w.\-]*\.(?:ps1|psm1|sh|bash|zsh|bat|cmd|py)(?:\s|$)",
+    re.IGNORECASE,
+)
 EXIT_PATTERN = re.compile(r"(?:exit\s+code|returncode)\s*[:=]\s*(-?\d+)", re.IGNORECASE)
 DIAGNOSTIC_LOG_MAX_BYTES = 64 * 1024
 
@@ -86,9 +98,9 @@ def _classify_task(payload: Mapping[str, object]) -> AgentTask:
     if isinstance(tool_name, str) and tool_name.lower() == "apply_patch":
         return AgentTask.EDITING
     command = _command(payload.get("tool_input"))
-    if command and TEST_PATTERN.search(command):
+    if command and (TEST_PATTERN.search(command) or TEST_SCRIPT_PATTERN.search(command)):
         return AgentTask.TESTING
-    if command and BUILD_PATTERN.search(command):
+    if command and (BUILD_PATTERN.search(command) or BUILD_SCRIPT_PATTERN.search(command)):
         return AgentTask.BUILDING
     return AgentTask.WORKING
 
@@ -145,9 +157,12 @@ def _digest(*parts: str) -> str:
     return digest.hexdigest()[:32]
 
 
-def send_observation(observation: AgentObservation) -> bool:
+def send_observation(
+    observation: AgentObservation, *, config_path: Path | None = None
+) -> bool:
     try:
-        config = load_agent_config(default_agent_config_path())
+        path = config_path.resolve() if config_path is not None else default_agent_config_path()
+        config = load_agent_config(path)
         body = json.dumps(observation.to_json(), separators=(",", ":")).encode("utf-8")
         request = Request(
             config.endpoint,
@@ -164,10 +179,16 @@ def send_observation(observation: AgentObservation) -> bool:
         return False
 
 
-def _record_delivery(hook_name: str, delivered: bool) -> None:
+def _record_delivery(
+    hook_name: str, delivered: bool, *, config_path: Path | None = None
+) -> None:
     """Keep a bounded, content-free trace for local hook troubleshooting."""
     try:
-        path = default_agent_config_path().with_name("agent-hook.log")
+        path = (
+            config_path.resolve()
+            if config_path is not None
+            else default_agent_config_path()
+        ).with_name("agent-hook.log")
         if path.exists() and path.stat().st_size >= DIAGNOSTIC_LOG_MAX_BYTES:
             path.write_text("", encoding="utf-8")
         timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -178,7 +199,9 @@ def _record_delivery(hook_name: str, delivered: bool) -> None:
         pass
 
 
-def main() -> None:
+def main(*, config_path: Path | None = None) -> None:
+    """Read one hook payload and send it using an optional explicit config path."""
+
     hook_name = ""
     try:
         raw = sys.stdin.buffer.read(256 * 1024 + 1)
@@ -190,8 +213,8 @@ def main() -> None:
         hook_name = payload.get("hook_event_name", "") if isinstance(payload.get("hook_event_name"), str) else ""
         observation = normalize_hook_payload(payload)
         if observation is not None:
-            delivered = send_observation(observation)
-            _record_delivery(hook_name, delivered)
+            delivered = send_observation(observation, config_path=config_path)
+            _record_delivery(hook_name, delivered, config_path=config_path)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
         pass
     # Stop requires JSON output on a successful hook. This affirmative no-op

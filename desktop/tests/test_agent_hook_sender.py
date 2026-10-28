@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from codex_beacon.packs.agent import AgentOutcome, AgentTask
-from codex_beacon.packs.agent.hook_sender import normalize_hook_payload
+from codex_beacon.packs.agent.config import AgentHookConfig
+from codex_beacon.packs.agent.hook_sender import normalize_hook_payload, send_observation
 
 
 def payload(event: str, **extra: object) -> dict[str, object]:
@@ -50,6 +54,35 @@ class AgentHookSenderTests(unittest.TestCase):
         self.assertEqual(testing.task, AgentTask.TESTING)  # type: ignore[union-attr]
         self.assertEqual(building.task, AgentTask.BUILDING)  # type: ignore[union-attr]
         self.assertNotIn("command", testing.to_json())  # type: ignore[union-attr]
+
+    def test_wrapper_scripts_naming_build_or_test_are_classified(self) -> None:
+        build_script = normalize_hook_payload(
+            payload(
+                "PreToolUse",
+                tool_name="Bash",
+                tool_use_id="tool-3",
+                tool_input={"command": r".\build_hil.ps1 -Profile hub_v2_transport"},
+            )
+        )
+        test_script = normalize_hook_payload(
+            payload(
+                "PreToolUse",
+                tool_name="Bash",
+                tool_use_id="tool-4",
+                tool_input={"command": "scripts/run-tests.sh --all"},
+            )
+        )
+        unrelated_script = normalize_hook_payload(
+            payload(
+                "PreToolUse",
+                tool_name="Bash",
+                tool_use_id="tool-5",
+                tool_input={"command": "Get-FileHash -Algorithm SHA256 -LiteralPath out.bin"},
+            )
+        )
+        self.assertEqual(build_script.task, AgentTask.BUILDING)  # type: ignore[union-attr]
+        self.assertEqual(test_script.task, AgentTask.TESTING)  # type: ignore[union-attr]
+        self.assertEqual(unrelated_script.task, AgentTask.WORKING)  # type: ignore[union-attr]
 
     def test_non_thinking_lifecycle_events_are_classified(self) -> None:
         working = normalize_hook_payload(
@@ -109,6 +142,32 @@ class AgentHookSenderTests(unittest.TestCase):
         self.assertEqual(success.outcome, AgentOutcome.SUCCESS)  # type: ignore[union-attr]
         self.assertEqual(failure.outcome, AgentOutcome.FAILURE)  # type: ignore[union-attr]
         self.assertEqual(edit.outcome, AgentOutcome.UNKNOWN)  # type: ignore[union-attr]
+
+    def test_explicit_config_path_bypasses_environment_and_working_directory(self) -> None:
+        observed = normalize_hook_payload(payload("UserPromptSubmit"))
+        assert observed is not None
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "project" / "desktop" / "agent-hook.json"
+            response = MagicMock()
+            response.status = 202
+            context = MagicMock()
+            context.__enter__.return_value = response
+            with (
+                patch(
+                    "codex_beacon.packs.agent.hook_sender.load_agent_config",
+                    return_value=AgentHookConfig(
+                        endpoint="http://127.0.0.1:49326/v1/events",
+                        bearer_token="x" * 32,
+                    ),
+                ) as load_config,
+                patch(
+                    "codex_beacon.packs.agent.hook_sender.urlopen", return_value=context
+                ),
+            ):
+                delivered = send_observation(observed, config_path=config_path)
+
+        self.assertTrue(delivered)
+        load_config.assert_called_once_with(config_path.resolve())
 
 
 if __name__ == "__main__":
