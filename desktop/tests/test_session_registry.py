@@ -61,8 +61,6 @@ class SessionRegistryTests(unittest.IsolatedAsyncioTestCase):
         await pack.stop()
 
     async def test_v1_stream_still_behaves_as_one_global_session(self) -> None:
-        from codex_beacon.packs.agent.events import AgentOutcome, AgentTask
-
         payload_base = {
             "version": 1,
             "turn_key": "b" * 32,

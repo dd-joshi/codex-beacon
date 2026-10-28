@@ -7,7 +7,6 @@ import unittest
 from datetime import datetime, timezone
 
 from codex_beacon.packs.agent.events import AgentObservation
-from codex_beacon.packs.agent.pack import AgentPack
 
 
 def _v2(
