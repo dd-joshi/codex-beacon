@@ -61,14 +61,15 @@ See [Modes](#modes) for Agent and Focus behavior.
 
 ## Modes
 
-- **Agent (default):** receives the five Codex lifecycle hooks and shows idle,
-  thinking, working, editing, testing, building, needs approval, needs input,
-  checks passed, check failed, and ready for review. Agent status requires the
-  hooks to be trusted.
-- **Focus (optional):** a local countdown with start, pause, resume, and stop on
-  the PC. The default duration is 25 minutes; change it to 1–240 minutes in
-  **Settings > General**. Focus needs no Codex hooks, and the phone cannot
-  control it.
+- **Agent (default):** receives three Codex lifecycle hooks and shows thinking,
+  needs approval, and ready-for-review status. Agent status requires the hooks
+  to be trusted. A long reasoning span holds **Thinking** for up to 2 hours
+  (it never false-flashes idle), so a silently cancelled turn can linger that
+  long before returning to "Waiting for Codex".
+- **Focus (optional):** a local countdown with start/pause, stop, and reset
+  buttons on the PC. The default duration is 25 minutes; click the big timer
+  on the Focus screen to edit it (1–240 whole minutes; Enter applies, Esc
+  cancels). Focus needs no Codex hooks, and the phone cannot control it.
 
 To start directly in Focus instead of Agent:
 
@@ -78,9 +79,11 @@ To start directly in Focus instead of Agent:
 
 ## Codex setup
 
-Codex Beacon needs five user-level Codex lifecycle hooks: `UserPromptSubmit`,
-`PreToolUse`, `PermissionRequest`, `PostToolUse`, and `Stop`. Run the setup
-wrapper:
+Codex Beacon's lightweight mode uses three user-level Codex lifecycle hooks:
+`UserPromptSubmit`, `PermissionRequest`, and `Stop`. This avoids starting a
+hook for every tool call, at the cost of live Working, Testing, and Building
+status updates. They are installed once and work in every local Codex or VS Code
+project on this Windows user account. Run the setup wrapper:
 
 ```powershell
 .\setup-codex-beacon.cmd
@@ -92,8 +95,12 @@ Or run the setup command directly:
 .\.venv\Scripts\codex-beacon-setup.exe --repository .
 ```
 
-The setup is idempotent and preserves hooks owned by other tools. It only
-configures Codex; VS Code and Claude setup are not supported.
+The setup is idempotent and preserves hooks owned by other tools. It configures
+the local Codex engine used by the CLI and Codex's VS Code extension. Other VS
+Code assistants and Claude are not configured.
+
+To limit the hooks to this repository only, pass `--scope project` to the
+direct setup command. The default scope is `user`.
 
 Then start Codex in any project and run:
 
@@ -101,7 +108,9 @@ Then start Codex in any project and run:
 /hooks
 ```
 
-Review the five `User Config` Codex Beacon hooks and mark them **Trusted**.
+Review the three `User Config` Codex Beacon hooks and mark them **Trusted**.
+After changing hooks or their trust settings, reload existing VS Code windows
+and start a new Codex conversation so they load the current configuration.
 
 ## Phone setup
 
@@ -220,6 +229,22 @@ actions, or send commands; the only phone controls are alerts and mute.
 | `protocol/` | Frozen compatibility schemas and fixtures used by tests |
 | `tools/` | Advanced scenario runner and the setup helper |
 
+### How state reaches each surface
+
+```
+Codex hook --> AgentPack (packs/agent/pack.py)
+            --> PresentationState (companion/presentation.py)   [PC window]
+            --> StatusSnapshot    (companion/status.py)         [phone page]
+            --> rendered by companion/app.py (PySide6)          [PC window]
+               and companion/web/app.js + app.css (static page) [phone page]
+```
+
+(Paths relative to `desktop/src/codex_beacon/`.) Both surfaces consume the same
+semantic `state_key` (for example `agent.thinking`) and the shared tone mapping
+in `companion/display.py`, but each renders with its own markup. When changing a
+visual value on one surface, update the other by hand to keep PC and phone in
+step.
+
 The copied firmware, hardware, integrations, product-planning, commerce,
 template, friend-package, PC Activity, and device-only test material has been
 removed from this public repository. The desktop shell still contains inherited
@@ -242,8 +267,10 @@ kept unchanged because the wire format is frozen; no firmware is included.
   Codex.
 - Generated secrets, local device configuration, hook configuration, and logs
   are ignored by `.gitignore`.
-- Global Codex hooks are user-level configuration outside this repository. The
-  setup command tells you exactly which file it changes.
+- By default, Codex Beacon hooks are stored in `~/.codex/hooks.json` and apply
+  to every local Codex project. The setup command uses a small Windows launcher
+  with repository-relative Python and script paths, without shell-injected
+  environment variables.
 
 ## Status
 
@@ -252,7 +279,7 @@ tray lifecycle, single-instance guard, token rotation, Focus mode, and Codex hoo
 setup are implemented and covered by the desktop test suite. The authenticated
 phone page and the Focus countdown/return-to-Agent flow have been manually
 verified over the LAN. Real Codex lifecycle acceptance and physical phone
-chime/vibration still need confirmation with the five hooks trusted and the page
+chime/vibration still need confirmation with the three hooks trusted and the page
 open.
 
 ## License
