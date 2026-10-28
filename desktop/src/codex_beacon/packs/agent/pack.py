@@ -34,9 +34,13 @@ from .events import (
 REFRESH_SECONDS = 45.0
 ACTIVE_VALID_FOR_MS = 60_000
 TERMINAL_VALID_FOR_MS = 10_000
-# Codex does not emit Stop when a user cancels a turn. Bound ordinary
-# thinking/working/editing states so a missing terminal hook cannot leave the
-# companion active indefinitely. Tests and builds retain their longer lease.
+# Codex does not emit Stop when a user cancels a turn, and it emits no
+# heartbeat during a bare reasoning span (a turn only emits one turn_started).
+# Active states are therefore bounded so a missing terminal hook cannot leave
+# the companion active indefinitely. Product decision (2026-10-26): THINKING
+# shares the long tests/builds lease because genuinely long reasoning spans
+# outlasted the short one and false-flashed "Waiting for Codex"; WORKING and
+# EDITING keep the short lease.
 STALE_ACTIVE_NS = 2 * 60 * 1_000_000_000
 STALE_LONG_TASK_NS = 2 * 60 * 60 * 1_000_000_000
 STALE_WAITING_NS = 30 * 60 * 1_000_000_000
@@ -322,7 +326,7 @@ def _state_for_task(task: AgentTask) -> AgentState:
 
 
 def _stale_after_ns(state: AgentState) -> int:
-    if state in {AgentState.TESTING, AgentState.BUILDING}:
+    if state in {AgentState.THINKING, AgentState.TESTING, AgentState.BUILDING}:
         return STALE_LONG_TASK_NS
     if state is AgentState.WAITING:
         return STALE_WAITING_NS

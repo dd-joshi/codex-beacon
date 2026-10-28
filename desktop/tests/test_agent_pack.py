@@ -27,7 +27,11 @@ from codex_beacon.packs.agent import (
     AgentTask,
     create_pack,
 )
-from codex_beacon.packs.agent.pack import STALE_ACTIVE_NS, _stale_after_ns
+from codex_beacon.packs.agent.pack import (
+    STALE_ACTIVE_NS,
+    STALE_LONG_TASK_NS,
+    _stale_after_ns,
+)
 from codex_beacon.protocol import compile_proposal
 
 
@@ -126,11 +130,17 @@ class AgentPackContractTests(unittest.IsolatedAsyncioTestCase):
     def test_unterminated_interactive_state_has_bounded_stale_lease(self) -> None:
         self.assertEqual(STALE_ACTIVE_NS, 2 * 60 * 1_000_000_000)
         for state in (
-            AgentState.THINKING,
             AgentState.WORKING,
             AgentState.EDITING,
         ):
             self.assertEqual(_stale_after_ns(state), STALE_ACTIVE_NS)
+
+    def test_thinking_shares_the_long_task_stale_lease(self) -> None:
+        # Product decision (2026-10-26): Codex emits no mid-reasoning
+        # heartbeat, so a bare long reasoning span must not expire after the
+        # short active lease and false-flash "Waiting for Codex".
+        self.assertEqual(STALE_LONG_TASK_NS, 2 * 60 * 60 * 1_000_000_000)
+        self.assertEqual(_stale_after_ns(AgentState.THINKING), STALE_LONG_TASK_NS)
 
     def test_factory_and_manifest(self) -> None:
         first = create_pack()
