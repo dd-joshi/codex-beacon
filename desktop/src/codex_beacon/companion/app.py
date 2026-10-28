@@ -13,15 +13,29 @@ from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QLockFile, QRectF, QSize, QStandardPaths, Qt, QTimer, QUrl
+from PySide6.QtCore import (
+    QEvent,
+    QLockFile,
+    QObject,
+    QRectF,
+    QSize,
+    QStandardPaths,
+    Qt,
+    QTimer,
+    QUrl,
+)
 from PySide6.QtGui import (
     QColor,
     QCloseEvent,
     QDesktopServices,
     QFont,
     QHideEvent,
+    QIcon,
+    QIntValidator,
+    QKeyEvent,
     QPainter,
     QPen,
+    QPixmap,
     QRadialGradient,
     QShowEvent,
 )
@@ -49,7 +63,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from codex_beacon.companion.display import display_cells_at
+from codex_beacon.companion.display import (
+    TONE_COLORS,
+    DisplayTone,
+    display_cells_at,
+    display_spec,
+)
 from codex_beacon.companion.presentation import (
     CellLabelGroup,
     ConnectionPhase,
@@ -75,7 +94,7 @@ from codex_beacon.companion.status_server import StatusServer
 from codex_beacon.config import LocalDeviceConfig, default_config_path, load_local_device_config
 from codex_beacon.contracts import RGB
 from codex_beacon.host import HostEvent
-from codex_beacon.packs.focus import ACTION_CANCEL, ACTION_START_PAUSE
+from codex_beacon.packs.focus import ACTION_CANCEL, ACTION_RESET, ACTION_START_PAUSE
 from codex_beacon.packs.registry import AGENT_PACK_ID, BUILTIN_PACKS, FOCUS_PACK_ID
 from codex_beacon.transport import ProtocolClientError
 
@@ -159,11 +178,24 @@ QToolButton#SettingsButton:hover {
 }
 QLabel#Timer {
     color: #f3f5fb;
-    font-size: 18pt;
+    font-size: 26pt;
     font-weight: 600;
 }
 QLabel#Timer[timerMode="true"] {
-    font-size: 30pt;
+    font-size: 36pt;
+}
+QLabel#Detail {
+    color: #9aa2b5;
+    font-size: 12pt;
+}
+QLineEdit#TimerEdit {
+    color: #f3f5fb;
+    background: #12151c;
+    border: 2px solid #3b82f6;
+    border-radius: 10px;
+    font-size: 26pt;
+    font-weight: 600;
+    padding: 0 12px;
 }
 QLabel#Notice {
     color: #fca5a5;
@@ -311,6 +343,82 @@ def _apply_dark_title_bar(widget: QWidget) -> None:
         pass
 
 
+MAX_FOCUS_DURATION_MINUTES = 240
+
+
+def _icon_source_path() -> Path:
+    """The beacon mark, shared with the phone page's favicon (single source)."""
+
+    return Path(__file__).resolve().parent / "web" / "icon.svg"
+
+
+def _icon_renders(icon: QIcon) -> bool:
+    """Check whether Qt actually painted pixels for a multi-format icon."""
+
+    image = icon.pixmap(QSize(64, 64)).toImage()
+    if image.isNull():
+        return False
+    # Pixel at the center of the first lit dot of the 128x128 mark (0.5 scale).
+    return image.pixelColor(17, 32).alpha() > 64
+
+
+def _paint_beacon_icon(size: int) -> QPixmap:
+    """Paint the beacon glyph directly.
+
+    Fallback for environments where the SVG icon engine is unavailable.  Keep
+    these values in step with web/icon.svg (dark tile, six blue dots).
+    """
+
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    scale = size / 128.0
+    tile = QRectF(0.0, 0.0, size, size)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(QColor("#0f1115"))
+    painter.drawRoundedRect(tile, 28.0 * scale, 28.0 * scale)
+    painter.setBrush(QColor("#3b82f6"))
+    for cx, cy, opacity in (
+        (34, 64, 1.0),
+        (52, 64, 1.0),
+        (70, 64, 1.0),
+        (88, 64, 1.0),
+        (46, 84, 0.65),
+        (76, 84, 0.65),
+    ):
+        painter.setOpacity(opacity)
+        dot = QRectF((cx - 8) * scale, (cy - 8) * scale, 16.0 * scale, 16.0 * scale)
+        painter.drawEllipse(dot)
+    painter.setOpacity(1.0)
+    painter.end()
+    return pixmap
+
+
+def _beacon_icon() -> QIcon:
+    """The app icon: the shared SVG mark, or a painted fallback."""
+
+    icon = QIcon(str(_icon_source_path()))
+    if _icon_renders(icon):
+        return icon
+    icon = QIcon()
+    for size in (32, 64, 128):
+        icon.addPixmap(_paint_beacon_icon(size))
+    return icon
+
+
+def _parse_duration_minutes(text: str) -> int | None:
+    """Parse a Focus duration typed on the main screen.  Whole minutes only."""
+
+    try:
+        minutes = int(text.strip())
+    except ValueError:
+        return None
+    if 1 <= minutes <= MAX_FOCUS_DURATION_MINUTES:
+        return minutes
+    return None
+
+
 class LightStrip(QWidget):
     """Six quiet LED pips with optional desktop-only semantic labels."""
 
@@ -318,12 +426,12 @@ class LightStrip(QWidget):
         super().__init__(parent)
         self._cells: tuple[RGB, ...] = (RGB(0, 0, 0),) * 6
         self._groups: tuple[CellLabelGroup, ...] = ()
-        self.setMinimumSize(300, 64)
+        self.setMinimumSize(460, 92)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setAccessibleName("Six Codex Beacon lights")
 
     def sizeHint(self) -> QSize:
-        return QSize(380, 104 if self._groups else 64)
+        return QSize(520, 150 if self._groups else 92)
 
     def set_presentation(
         self,
@@ -339,7 +447,7 @@ class LightStrip(QWidget):
             for group in groups
         )
         self.setAccessibleDescription(details)
-        self.setMinimumHeight(104 if groups else 64)
+        self.setMinimumHeight(150 if groups else 92)
         self.updateGeometry()
         self.update()
 
@@ -347,8 +455,9 @@ class LightStrip(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        diameter = 30.0
-        gap = 14.0
+        diameter = 48.0
+        # 30px spacing keeps the soft halos from reading as one blob.
+        gap = 30.0
         total_width = 6 * diameter + 5 * gap
         start_x = (self.width() - total_width) / 2
         top = 58.0 if self._groups else (self.height() - diameter) / 2
@@ -470,28 +579,6 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(18, 18, 18, 16)
         tabs = QTabWidget()
         layout.addWidget(tabs, 1)
-
-        general = QWidget()
-        general_layout = QVBoxLayout(general)
-        general_layout.setContentsMargins(16, 16, 16, 16)
-        form = QFormLayout()
-        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-
-        self.duration = QSpinBox()
-        self.duration.setRange(1, 240)
-        self.duration.setValue(owner.duration_minutes)
-        self.duration.valueChanged.connect(self._update_duration_suffix)
-        self._update_duration_suffix(self.duration.value())
-        self.duration.setAccessibleName("Focus duration in minutes")
-        form.addRow("Focus duration", self.duration)
-        general_layout.addLayout(form)
-
-        apply_duration = QPushButton("Apply duration and reset")
-        apply_duration.setObjectName("Primary")
-        apply_duration.clicked.connect(self._apply_duration)
-        general_layout.addWidget(apply_duration, 0, Qt.AlignmentFlag.AlignRight)
-        general_layout.addStretch(1)
-        tabs.addTab(general, "General")
 
         agent = QWidget()
         agent_layout = QVBoxLayout(agent)
@@ -682,22 +769,6 @@ class SettingsDialog(QDialog):
     def _connect(self) -> None:
         self.owner.connect_device(self.endpoint.text().strip())
 
-    def _update_duration_suffix(self, value: int) -> None:
-        self.duration.setSuffix(" minute" if value == 1 else " minutes")
-
-    def _apply_duration(self) -> None:
-        if self.owner.state.focus in {FocusPhase.WORKING, FocusPhase.PAUSED}:
-            answer = QMessageBox.question(
-                self,
-                "Reset Focus?",
-                "Changing the duration will stop and reset the current Focus session.",
-                QMessageBox.StandardButton.Cancel | QMessageBox.StandardButton.Apply,
-                QMessageBox.StandardButton.Cancel,
-            )
-            if answer != QMessageBox.StandardButton.Apply:
-                return
-        self.owner.apply_duration(self.duration.value())
-
 
 class CompanionWindow(QMainWindow):
     def __init__(
@@ -712,8 +783,8 @@ class CompanionWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self.setWindowTitle("Codex Beacon")
-        self.setMinimumSize(560, 290)
-        self.resize(680, 320)
+        self.setMinimumSize(760, 420)
+        self.resize(900, 480)
         self.setStyleSheet(WINDOW_STYLE)
 
         self._events: queue.SimpleQueue[CompanionEvent] = queue.SimpleQueue()
@@ -741,6 +812,7 @@ class CompanionWindow(QMainWindow):
             duration_minutes,
             reduced_motion=reduced_motion,
         )
+        self._active_tone: DisplayTone | None = None
 
         self._build()
         self._load_config(endpoint_override)
@@ -782,6 +854,12 @@ class CompanionWindow(QMainWindow):
         outer = QVBoxLayout(central)
         outer.setContentsMargins(22, 16, 22, 18)
         outer.setSpacing(0)
+
+        self._tone_bar = QWidget()
+        self._tone_bar.setObjectName("ToneBar")
+        self._tone_bar.setFixedHeight(4)
+        self._tone_bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        outer.addWidget(self._tone_bar)
 
         header = QHBoxLayout()
         header.setSpacing(2)
@@ -841,6 +919,28 @@ class CompanionWindow(QMainWindow):
         self.timer.setAccessibleName("Focus time remaining")
         content.addWidget(self.timer)
 
+        self.timer_edit = QLineEdit()
+        self.timer_edit.setObjectName("TimerEdit")
+        self.timer_edit.setValidator(QIntValidator(1, MAX_FOCUS_DURATION_MINUTES, self.timer_edit))
+        self.timer_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.timer_edit.setMaximumWidth(300)
+        self.timer_edit.setToolTip(
+            "Focus duration in whole minutes (1-240). Enter applies, Esc cancels."
+        )
+        self.timer_edit.setAccessibleName("Focus duration in minutes")
+        self.timer_edit.setVisible(False)
+        content.addWidget(self.timer_edit, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.timer.installEventFilter(self)
+        self.timer_edit.installEventFilter(self)
+        self.timer_edit.editingFinished.connect(self._apply_timer_edit)
+
+        self.detail_label = QLabel()
+        self.detail_label.setObjectName("Detail")
+        self.detail_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.detail_label.setWordWrap(True)
+        self.detail_label.setVisible(False)
+        content.addWidget(self.detail_label)
+
         self.lights = LightStrip()
         content.addWidget(self.lights, 0, Qt.AlignmentFlag.AlignCenter)
 
@@ -868,6 +968,19 @@ class CompanionWindow(QMainWindow):
         self.stop.setAccessibleName("Stop Focus")
         self.stop.clicked.connect(lambda: self.runtime.send_action(ACTION_CANCEL))
         controls.addWidget(self.stop)
+
+        self.reset = QToolButton()
+        self.reset.setObjectName("SecondaryAction")
+        self.reset.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.reset.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogResetButton)
+        )
+        self.reset.setIconSize(QSize(10, 10))
+        self.reset.setText("Reset")
+        self.reset.setToolTip("Reset Focus to the full duration")
+        self.reset.setAccessibleName("Reset Focus")
+        self.reset.clicked.connect(lambda: self.runtime.send_action(ACTION_RESET))
+        controls.addWidget(self.reset)
         controls.addStretch(1)
         content.addLayout(controls)
 
@@ -959,10 +1072,7 @@ class CompanionWindow(QMainWindow):
             self._log("System tray unavailable; closing the window quits Codex Beacon.")
             return
         self._tray_available = True
-        tray = QSystemTrayIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon),
-            self,
-        )
+        tray = QSystemTrayIcon(self.windowIcon(), self)
         tray.setToolTip("Codex Beacon")
         menu = QMenu(self)
         show_action = menu.addAction("Show Codex Beacon")
@@ -1190,7 +1300,11 @@ class CompanionWindow(QMainWindow):
         self.timer.setAccessibleName(
             "Focus time remaining" if self.state.is_focus else self.state.headline
         )
+        self._refresh_timer_editability()
+        self.detail_label.setText(self.state.detail)
+        self.detail_label.setVisible(bool(self.state.detail))
         self._render_lights()
+        self._render_tone()
 
         pause = self.state.focus is FocusPhase.WORKING
         icon = QStyle.StandardPixmap.SP_MediaPause if pause else QStyle.StandardPixmap.SP_MediaPlay
@@ -1206,6 +1320,10 @@ class CompanionWindow(QMainWindow):
         self.primary.setAccessibleName(self.state.primary_action_name)
         self.primary.setVisible(self.state.is_focus)
         self.stop.setVisible(self.state.can_stop)
+        self.reset.setVisible(
+            self.state.is_focus
+            and self.state.focus not in {FocusPhase.IDLE, FocusPhase.UNKNOWN}
+        )
 
         self._refresh_status_chip()
 
@@ -1253,6 +1371,100 @@ class CompanionWindow(QMainWindow):
             display_cells_at(self.state, time.monotonic_ns()),
             self.state.cell_label_groups,
         )
+
+    def _render_tone(self) -> None:
+        """Tint a thin accent bar with the shared tone-color mapping.
+
+        The PC window's glance cue is computed from the same
+        ``display_spec``/``TONE_COLORS`` the phone page uses, so the two
+        surfaces cannot drift apart.  A 4px bar reads from across a room
+        without fighting ``WINDOW_STYLE``'s window-wide QSS.
+        """
+
+        tone = display_spec(self.state).tone
+        if tone == self._active_tone:
+            return
+        self._active_tone = tone
+        rgb = TONE_COLORS[tone]
+        color = QColor(rgb.r, rgb.g, rgb.b).name()
+        self._tone_bar.setStyleSheet(
+            f"background-color: {color}; border-radius: 2px;"
+        )
+
+    def _timer_editable(self) -> bool:
+        return self.state.is_focus and self.state.focus not in {
+            FocusPhase.WORKING,
+            FocusPhase.PAUSED,
+        }
+
+    def _refresh_timer_editability(self) -> None:
+        if self.timer_edit.isVisible() and not self._timer_editable():
+            self._close_timer_editor()
+        self.timer.setVisible(not self.timer_edit.isVisible())
+        editable = self._timer_editable()
+        self.timer.setCursor(
+            Qt.CursorShape.PointingHandCursor
+            if editable
+            else Qt.CursorShape.ArrowCursor
+        )
+        self.timer.setToolTip(
+            "Click to edit the Focus duration" if editable else ""
+        )
+
+    def _open_timer_editor(self) -> None:
+        if not self._timer_editable() or self.timer_edit.isVisible():
+            return
+        self.timer_edit.setText(str(self.duration_minutes))
+        self.timer_edit.selectAll()
+        self.timer.setVisible(False)
+        self.timer_edit.setVisible(True)
+        self.timer_edit.setFocus()
+
+    def _apply_timer_edit(self) -> None:
+        if not self.timer_edit.isVisible():
+            return
+        minutes = _parse_duration_minutes(self.timer_edit.text())
+        self._close_timer_editor()
+        if minutes is None or minutes == self.duration_minutes:
+            return
+        self.apply_duration(minutes)
+
+    def _close_timer_editor(self) -> None:
+        self.timer_edit.setVisible(False)
+        self.timer_edit.setText("")
+        self.timer.setVisible(True)
+        central = self.centralWidget()
+        if central is not None:
+            central.setFocus()
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if watched is self.timer and isinstance(event, QEvent):
+            if (
+                event.type() == QEvent.Type.MouseButtonPress
+                and not self.timer_edit.isVisible()
+                and self._timer_editable()
+            ):
+                self._open_timer_editor()
+                return True
+        if watched is self.timer_edit and isinstance(event, QKeyEvent):
+            if event.key() == Qt.Key.Key_Escape:
+                self._close_timer_editor()
+                return True
+            if event.type() == QEvent.Type.KeyPress:
+                return False
+        if (
+            watched is self.timer_edit
+            and isinstance(event, QEvent)
+            and event.type() == QEvent.Type.FocusOut
+        ):
+            # Enter already applied (and hid the editor); an invalid blur
+            # reverts instead of committing half-typed text.
+            if self.timer_edit.isVisible():
+                if _parse_duration_minutes(self.timer_edit.text()) is not None:
+                    self._apply_timer_edit()
+                else:
+                    self._close_timer_editor()
+        return super().eventFilter(watched, event)
 
     def _log(self, message: str) -> None:
         stamp = datetime.now().strftime("%H:%M:%S")
@@ -1337,6 +1549,7 @@ def main() -> None:
     application = QApplication.instance() or QApplication([])
     application.setApplicationName("Codex Beacon")
     application.setOrganizationName("Codex Beacon")
+    application.setWindowIcon(_beacon_icon())
     application.setQuitOnLastWindowClosed(False)
     instance_lock = _instance_lock()
     if not instance_lock.tryLock(0):

@@ -46,6 +46,7 @@ body {
     max(1rem, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 0;
   background:
     radial-gradient(
@@ -176,18 +177,12 @@ body {
 }
 
 .stage {
-  flex: 0 0 40vh;
+  flex: 0 1 auto;
   min-height: clamp(8rem, 30vh, 16rem);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 0;
-}
-
-@supports (height: 40dvh) {
-  .stage {
-    flex-basis: 40dvh;
-  }
+  padding: 2rem 0;
 }
 
 .cells {
@@ -368,6 +363,8 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  align-items: center;
+  text-align: center;
   min-height: 0;
   padding: 0;
   border: none;
@@ -433,6 +430,7 @@ body {
 .meta {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0;
   margin-top: 0.7rem;
   color: var(--quiet);
@@ -449,6 +447,7 @@ body {
   flex-wrap: wrap;
   gap: 0.65rem;
   padding-top: 0.9rem;
+  margin-top: auto;
 }
 
 .button {
@@ -503,10 +502,6 @@ body {
   .app {
     padding-left: 0.9rem;
     padding-right: 0.9rem;
-  }
-
-  .stage {
-    flex-basis: 38dvh;
   }
 }
 

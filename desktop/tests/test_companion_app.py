@@ -5,7 +5,11 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication, QTabWidget, QWidget
 
-from codex_beacon.companion.app import SettingsDialog
+from codex_beacon.companion.app import (
+    MAX_FOCUS_DURATION_MINUTES,
+    SettingsDialog,
+    _parse_duration_minutes,
+)
 from codex_beacon.companion.presentation import PresentationState
 
 
@@ -47,6 +51,22 @@ class _FakeOwner(QWidget):
 
     def apply_duration(self, duration_minutes: int) -> None:
         pass
+
+
+class DurationParseTests(unittest.TestCase):
+    def test_accepts_whole_minutes_within_range(self) -> None:
+        self.assertEqual(_parse_duration_minutes("25"), 25)
+        self.assertEqual(_parse_duration_minutes(" 50 "), 50)
+        self.assertEqual(_parse_duration_minutes("1"), 1)
+        self.assertEqual(
+            _parse_duration_minutes(str(MAX_FOCUS_DURATION_MINUTES)),
+            MAX_FOCUS_DURATION_MINUTES,
+        )
+
+    def test_rejects_invalid_or_out_of_range_input(self) -> None:
+        for text in ("", "   ", "abc", "0", "-3", "241", "24.5"):
+            with self.subTest(text=text):
+                self.assertIsNone(_parse_duration_minutes(text))
 
 
 class SettingsDialogTests(unittest.TestCase):
